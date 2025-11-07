@@ -1,0 +1,43 @@
+Setup & Configuration
+- [x] Initialize Django project and apps
+- [ ] Configure settings, URLs, static, and media paths
+- [ ] Add Bootstrap and base navigation layout
+- [ ] Push project to GitHub repository
+
+
+ Authentication & Pages
+- [ ] Implement Join, Login, and Logout functionality
+- [ ] Add an “About” page with project and team info
+- [ ] Integrate Django’s built-in authentication system
+
+
+ Document Management
+- [ ] Enable file uploads for multiple document types
+- [ ] Implement conversion to PDF (DOCX, XLSX, TXT, PNG, JPG)
+- [ ] Build a dashboard to view, download, and delete uploaded documents
+
+
+ Document Operations
+- [ ] Create merge and split features for PDFs
+- [ ] Add document comparison to highlight differences
+- [ ] Add a digital signature feature for signing PDFs
+
+
+ Data & Models
+- [ ] Define Document, OperationJob, and Signature models with relationships
+- [ ] Run migrations and test database connections
+
+
+ Server & Deployment
+- [ ] Implement /server_info/ route using requests
+- [ ] Create Dockerfile with gunicorn and nginx setup
+- [ ] Deploy to Google Cloud Platform (MIG + LB + SSL)
+- [ ] Connect to PostgreSQL database on GCP
+- [ ] Configure domain name and HTTPS support
+
+
+ Testing & Polish
+- [ ] Add tests for views and models
+- [ ] Refine UI/UX design with Bootstrap
+- [ ] Update README with deployment instructions and screenshots
+- [ ] Prepare final demo and presentation
