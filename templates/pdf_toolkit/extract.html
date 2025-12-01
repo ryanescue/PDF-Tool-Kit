@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Document Extractor</title>
+    <link rel="stylesheet" href="{% static 'pdf_toolkit/extract.css' %}">
+</head>
+<body>
+    {% include 'includes/nav.html' %}
+    <h1>Document Extractor</h1>
+
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <form class="extract-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <label>
+            PDF file:
+            <input type="file" name="pdf" accept="application/pdf" required>
+        </label>
+
+        <label>
+            Method:
+            <select name="method">
+                <option value="auto" {% if selected_method == "auto" %}selected{% endif %}>Auto</option>
+                <option value="pypdf" {% if selected_method == "pypdf" %}selected{% endif %}>PyPDF</option>
+                <option value="tesseract" {% if selected_method == "tesseract" %}selected{% endif %}>Tesseract</option>
+                <option value="easyocr" {% if selected_method == "easyocr" %}selected{% endif %}>EasyOCR</option>
+            </select>
+        </label>
+
+        <label>
+            <input type="checkbox" name="normalize" value="1" {% if normalize %}checked{% endif %}>
+            Normalize whitespace
+        </label>
+
+        <button type="submit">Extract</button>
+    </form>
+
+    {% if text %}
+        <textarea class="result" readonly>{{ text }}</textarea>
+    {% endif %}
+</body>
+</html>

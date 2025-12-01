@@ -1,0 +1,12 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/nav.css' %}">
+
+<nav class="site-nav">
+    <div class="site-nav__brand">
+        <a href="/">PDF Toolkit</a>
+    </div>
+    <ul class="site-nav__links">
+        <li><a href="/">Home</a></li>
+        <li><a href="{% url 'extract' %}">Extractor</a></li>
+    </ul>
+</nav>
