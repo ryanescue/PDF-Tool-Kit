@@ -1,0 +1,248 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Splitter</title>
+    <link rel="stylesheet" href="{% static 'pdf_toolkit/split.css' %}">
+</head>
+<body>
+    {% include 'includes/nav.html' %}
+    <main class="split-page">
+        <section class="split-builder">
+            <h1>Split PDFs</h1>
+            <p class="lede">
+                Upload a PDF, choose the page numbers where you want to slice it,
+                and download the resulting sections instantly.
+            </p>
+
+            {% if error %}
+                <p class="flash flash--error">{{ error }}</p>
+            {% endif %}
+            {% if success %}
+                <p class="flash flash--success">{{ success }}</p>
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data" class="split-form" id="split-form">
+                {% csrf_token %}
+                <label class="file-picker">
+                    <span>Select PDF</span>
+                    <input type="file" name="pdf" id="split-file-input" accept="application/pdf" required>
+                </label>
+                <p class="helper-text helper-text--file" id="split-file-label">No file selected yet.</p>
+
+                <div class="split-controls">
+                    <label for="split-page-input">Add split at page</label>
+                    <div class="split-controls__row">
+                        <input type="number" id="split-page-input" min="2" step="1" placeholder="e.g., 4">
+                        <button type="button" id="add-split-point" class="ghost-button">Add split</button>
+                    </div>
+                    <p class="helper-text">You can add multiple splits. For example, entering 4 and 9 will produce segments (1-3), (4-8), (9-end).</p>
+                </div>
+
+                <input type="hidden" name="split_points" id="split-points-input" value="{{ split_points }}">
+
+                <div class="split-markers" id="split-markers">
+                    <div class="split-markers__header">
+                        <h3>Split markers</h3>
+                        <button type="button" id="clear-splits" class="ghost-button ghost-button--compact" disabled>Clear all</button>
+                    </div>
+                    <p id="split-empty" class="empty-state-sm">No split points yet.</p>
+                    <ul class="split-markers__list" id="split-markers-list"></ul>
+                </div>
+
+                <p class="flash flash--error" id="split-client-error" hidden>Add at least one split marker.</p>
+
+                <button type="submit" class="primary-button">Split PDF</button>
+            </form>
+        </section>
+
+        <section class="split-history">
+            <div class="history-header">
+                <h2>Recent activity</h2>
+                <p>Every merge or split you run will show up here for quick downloads.</p>
+            </div>
+            {% if activity_history %}
+                <ul class="split-history__list">
+                    {% for record in activity_history %}
+                        <li class="split-history__item">
+                            <div class="split-history__meta">
+                                <div>
+                                    <p class="split-history__name">{{ record.title }}</p>
+                                    <p class="split-history__meta-text">
+                                        {{ record.meta }} &middot; {{ record.created }}
+                                        &middot; {{ record.type|title }}
+                                    </p>
+                                </div>
+                                {% if record.type == "split" and record.split_points %}
+                                    <button type="button"
+                                            class="ghost-button ghost-button--compact apply-splits"
+                                            data-points="{{ record.split_points|join:',' }}">
+                                        Use these splits
+                                    </button>
+                                {% endif %}
+                            </div>
+                            {% if record.type == "split" and record.segments %}
+                                <ul class="segment-list">
+                                    {% for segment in record.segments %}
+                                        <li class="segment-item">
+                                            <div>
+                                                <p class="segment-item__label">{{ segment.label }}</p>
+                                                <p class="segment-item__name">{{ segment.name }}</p>
+                                            </div>
+                                            <a class="download-link" href="{% url 'split_download' record.id segment.id %}" aria-label="Download {{ segment.name }}">&#8681;</a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% elif record.type == "merge" %}
+                                <div class="segment-item merge-activity">
+                                    <p class="segment-item__label">Combined output ({{ record.total }} file{% if record.total != 1 %}s{% endif %})</p>
+                                    <a class="download-link" href="{% url 'merge_download' record.id %}" aria-label="Download {{ record.title }}">&#8681;</a>
+                                </div>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-state">Once you split a PDF it will appear here for quick downloads.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <script>
+    (function () {
+        const addButton = document.getElementById("add-split-point");
+        const clearButton = document.getElementById("clear-splits");
+        const numberInput = document.getElementById("split-page-input");
+        const hiddenInput = document.getElementById("split-points-input");
+        const markersList = document.getElementById("split-markers-list");
+        const emptyState = document.getElementById("split-empty");
+        const clientError = document.getElementById("split-client-error");
+        const form = document.getElementById("split-form");
+        const historyButtons = document.querySelectorAll(".apply-splits");
+        const fileInput = document.getElementById("split-file-input");
+        const fileLabel = document.getElementById("split-file-label");
+
+        let splitPoints = parseInitialPoints(hiddenInput.value);
+
+        function parseInitialPoints(value) {
+            if (!value) {
+                return [];
+            }
+            return value
+                .split(",")
+                .map((v) => parseInt(v, 10))
+                .filter((v) => Number.isInteger(v) && v > 1)
+                .sort((a, b) => a - b);
+        }
+
+        function renderSplitPoints() {
+            markersList.innerHTML = "";
+            hiddenInput.value = splitPoints.join(",");
+            if (!splitPoints.length) {
+                emptyState.hidden = false;
+                clearButton.disabled = true;
+                return;
+            }
+            emptyState.hidden = true;
+            clearButton.disabled = false;
+
+            splitPoints.forEach((point) => {
+                const li = document.createElement("li");
+                li.className = "split-marker";
+                li.innerHTML = `
+                    <div class="split-marker__line" aria-hidden="true"></div>
+                    <div class="split-marker__body">
+                        <p>Split at page <strong>${point}</strong></p>
+                        <button type="button" class="ghost-button ghost-button--compact" data-point="${point}">Remove</button>
+                    </div>
+                `;
+                markersList.appendChild(li);
+            });
+        }
+
+        function addSplitPoint() {
+            const value = parseInt(numberInput.value, 10);
+            if (!Number.isInteger(value) || value <= 1) {
+                numberInput.focus();
+                return;
+            }
+            if (!splitPoints.includes(value)) {
+                splitPoints.push(value);
+                splitPoints.sort((a, b) => a - b);
+                renderSplitPoints();
+            }
+            numberInput.value = "";
+            clientError.hidden = true;
+        }
+
+        function removeSplitPoint(point) {
+            const idx = splitPoints.indexOf(point);
+            if (idx >= 0) {
+                splitPoints.splice(idx, 1);
+                renderSplitPoints();
+            }
+        }
+
+        function updateFileLabel() {
+            if (!fileInput || !fileLabel) {
+                return;
+            }
+            const file = fileInput.files && fileInput.files[0];
+            if (file) {
+                fileLabel.textContent = `Selected: ${file.name}`;
+                fileLabel.classList.add("helper-text--file--active");
+            } else {
+                fileLabel.textContent = "No file selected yet.";
+                fileLabel.classList.remove("helper-text--file--active");
+            }
+        }
+
+        addButton?.addEventListener("click", addSplitPoint);
+        numberInput?.addEventListener("keyup", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                addSplitPoint();
+            }
+        });
+        markersList?.addEventListener("click", (event) => {
+            const button = event.target.closest("button[data-point]");
+            if (!button) {
+                return;
+            }
+            const point = parseInt(button.dataset.point, 10);
+            removeSplitPoint(point);
+        });
+        clearButton?.addEventListener("click", () => {
+            splitPoints = [];
+            renderSplitPoints();
+            clientError.hidden = true;
+        });
+        form?.addEventListener("submit", (event) => {
+            if (!splitPoints.length) {
+                event.preventDefault();
+                clientError.hidden = false;
+            } else {
+                clientError.hidden = true;
+            }
+        });
+        historyButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const points = parseInitialPoints(button.dataset.points || "");
+                if (!points.length) {
+                    return;
+                }
+                splitPoints = points;
+                renderSplitPoints();
+                clientError.hidden = true;
+            });
+        });
+
+        fileInput?.addEventListener("change", updateFileLabel);
+
+        updateFileLabel();
+        renderSplitPoints();
+    })();
+    </script>
+</body>
+</html>
