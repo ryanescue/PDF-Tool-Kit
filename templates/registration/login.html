@@ -1,0 +1,37 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Sign in</title>
+    <link rel="stylesheet" href="{% static 'css/nav.css' %}">
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        main { padding: 2rem; max-width: 420px; margin: 0 auto; }
+        form { display: flex; flex-direction: column; gap: 1rem; border: 1px solid #d1d5db; padding: 1.25rem; }
+        button { background: #1f2937; color: #fff; border: none; padding: 0.75rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+    {% include 'includes/nav.html' %}
+    <main>
+        <h1>Sign in</h1>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <label>
+                Username
+                {{ form.username }}
+                {{ form.username.errors }}
+            </label>
+            <label>
+                Password
+                {{ form.password }}
+                {{ form.password.errors }}
+            </label>
+            <button type="submit">Login</button>
+        </form>
+        <p>Need an account? <a href="{% url 'signup' %}">Sign up</a></p>
+    </main>
+</body>
+</html>

@@ -67,7 +67,7 @@
                                 <p class="history-item__name">{{ item.name }}</p>
                                 <p class="history-item__meta">{{ item.total }} file{% if item.total != 1 %}s{% endif %} &middot; {{ item.created }}</p>
                             </div>
-                            <a class="download-link" href="{% url 'merge_download' item.id %}" aria-label="Download {{ item.name }}">
+                            <a class="download-link" href="{% url 'merge_download' item.artifact_id %}" aria-label="Download {{ item.name }}">
                                 &#8681;
                             </a>
                         </li>

@@ -41,11 +41,15 @@ def _lazy_import_easyocr():
     return Reader(["en"])
 
 
-def convert_pdf_to_images(pdf_path: Path, *, scale: float = 300 / 72) -> List[dict]:
-    """Render each page of the PDF to a JPEG image in memory."""
+def convert_pdf_to_images(
+    pdf_path: Path, *, scale: float = 300 / 72, pages: Optional[Sequence[int]] = None
+) -> List[dict]:
+    """Render selected pages of the PDF to JPEG images in memory."""
     pdf_file = pdfium.PdfDocument(str(pdf_path))
+    indices = _prepare_page_indexes(pages, len(pdf_file))
     images: List[dict] = []
-    for i in range(len(pdf_file)):
+    target_pages = indices if indices is not None else range(len(pdf_file))
+    for i in target_pages:
         page = pdf_file.get_page(i)
         pil_image = page.render(scale=scale).to_pil()
         buf = BytesIO()
@@ -54,11 +58,16 @@ def convert_pdf_to_images(pdf_path: Path, *, scale: float = 300 / 72) -> List[di
     return images
 
 
-def extract_text_pypdf(pdf_path: Path) -> str:
+def extract_text_pypdf(
+    pdf_path: Path, pages: Optional[Sequence[int]] = None
+) -> str:
     """Extract the built-in text layer via PyPDF."""
     reader = PdfReader(str(pdf_path))
-    parts = []
-    for page in reader.pages:
+    indices = _prepare_page_indexes(pages, len(reader.pages))
+    parts: List[str] = []
+    target_pages = indices if indices is not None else range(len(reader.pages))
+    for idx in target_pages:
+        page = reader.pages[idx]
         text = page.extract_text()
         if text:
             parts.append(text)
@@ -109,6 +118,7 @@ def extract_pdf_text(
     method: Method = "auto",
     scale: float = 300 / 72,
     normalize: bool = False,
+    pages: Optional[Sequence[int]] = None,
 ) -> str:
     """
     Extract text from ``source`` using the requested backend.
@@ -125,25 +135,25 @@ def extract_pdf_text(
     requires_images = method in {"tesseract", "easyocr", "auto"}
     images: Optional[Sequence[dict]] = None
     if requires_images:
-        images = convert_pdf_to_images(source, scale=scale)
+        images = convert_pdf_to_images(source, scale=scale, pages=pages)
 
     text = ""
 
     if method in {"pypdf", "auto"}:
-        text = extract_text_pypdf(source)
+        text = extract_text_pypdf(source, pages=pages)
         if method == "pypdf" or text.strip():
             pass  # keep PyPDF result
         else:
             if images is None:
-                images = convert_pdf_to_images(source, scale=scale)
+                images = convert_pdf_to_images(source, scale=scale, pages=pages)
             text = extract_text_tesseract(images)
     elif method == "tesseract":
         if images is None:
-            images = convert_pdf_to_images(source, scale=scale)
+            images = convert_pdf_to_images(source, scale=scale, pages=pages)
         text = extract_text_tesseract(images)
     elif method == "easyocr":
         if images is None:
-            images = convert_pdf_to_images(source, scale=scale)
+            images = convert_pdf_to_images(source, scale=scale, pages=pages)
         text = extract_text_easyocr(images)
     else:  # pragma: no cover - validated by Literal
         raise ValueError(f"Unknown extraction method: {method}")
@@ -152,3 +162,14 @@ def extract_pdf_text(
         text = normalize_text(text)
 
     return text
+
+
+def _prepare_page_indexes(
+    pages: Optional[Sequence[int]], total_pages: int
+) -> Optional[List[int]]:
+    if not pages:
+        return None
+    cleaned = sorted({p for p in pages if 1 <= p <= total_pages})
+    if not cleaned:
+        return None
+    return [p - 1 for p in cleaned]

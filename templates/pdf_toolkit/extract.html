@@ -8,40 +8,260 @@
 </head>
 <body>
     {% include 'includes/nav.html' %}
-    <h1>Document Extractor</h1>
+    <main class="extract-page">
+        <section class="extract-panel">
+            <!-- Primary extractor workflow card -->
+            <div class="extract-header">
+                <h1>Extract text from PDFs</h1>
+                <p>Upload by dragging a PDF into the drop zone or using the picker. Choose an OCR method and optionally limit the page range.</p>
+            </div>
 
-    {% if error %}
-        <p class="error">{{ error }}</p>
-    {% endif %}
+            {% if error %}
+                <p class="flash flash--error">{{ error }}</p>
+            {% endif %}
+            {% if text and not error %}
+                <p class="flash flash--success">Extraction complete. Copy or download the text below.</p>
+            {% endif %}
 
-    <form class="extract-form" method="post" enctype="multipart/form-data">
-        {% csrf_token %}
+            <div class="extract-layout">
+                <!-- Left column: upload + controls -->
+                <form class="extract-form" method="post" enctype="multipart/form-data" id="extract-form">
+                    {% csrf_token %}
+                    <div class="file-picker-wrapper">
+                        <button type="button" class="file-picker" id="extract-select-button">Select PDF</button>
+                        <p class="helper-text helper-text--file" id="extract-file-label">No file selected yet.</p>
+                    </div>
+                    <input type="file" id="extract-file-input" name="pdf" accept="application/pdf" required hidden>
 
-        <label>
-            PDF file:
-            <input type="file" name="pdf" accept="application/pdf" required>
-        </label>
+                    <div class="form-grid">
+                        <label>
+                            Method
+                            <select name="method">
+                                <option value="auto" {% if selected_method == "auto" %}selected{% endif %}>Auto</option>
+                                <option value="pypdf" {% if selected_method == "pypdf" %}selected{% endif %}>PyPDF</option>
+                                <option value="tesseract" {% if selected_method == "tesseract" %}selected{% endif %}>Tesseract</option>
+                                <option value="easyocr" {% if selected_method == "easyocr" %}selected{% endif %}>EasyOCR</option>
+                            </select>
+                        </label>
 
-        <label>
-            Method:
-            <select name="method">
-                <option value="auto" {% if selected_method == "auto" %}selected{% endif %}>Auto</option>
-                <option value="pypdf" {% if selected_method == "pypdf" %}selected{% endif %}>PyPDF</option>
-                <option value="tesseract" {% if selected_method == "tesseract" %}selected{% endif %}>Tesseract</option>
-                <option value="easyocr" {% if selected_method == "easyocr" %}selected{% endif %}>EasyOCR</option>
-            </select>
-        </label>
+                        <label>
+                            Page range (optional)
+                            <input type="text" name="pages" value="{{ pages }}" placeholder="All pages or e.g. 1-3,5">
+                            <small>Use commas for multiple ranges. Leave blank for every page.</small>
+                        </label>
+                    </div>
 
-        <label>
-            <input type="checkbox" name="normalize" value="1" {% if normalize %}checked{% endif %}>
-            Normalize whitespace
-        </label>
+                    <label class="normalize-toggle">
+                        <input type="checkbox" name="normalize" value="1" {% if normalize %}checked{% endif %}>
+                        Normalize whitespace
+                    </label>
 
-        <button type="submit">Extract</button>
-    </form>
+                    <button type="submit" class="primary-button">Extract</button>
+                </form>
 
-    {% if text %}
-        <textarea class="result" readonly>{{ text }}</textarea>
-    {% endif %}
+                <!-- Right column: contextual helper describing extraction methods -->
+                <aside class="method-helper" aria-label="Extraction method tips">
+                    <h3>Which method should I use?</h3>
+                    <p class="method-helper__lede">Pick the option that matches the type of PDF you uploaded.</p>
+                    <ul class="method-cards">
+                        <li class="method-card">
+                            <span class="method-card__title">Auto</span>
+                            <p class="method-card__text">Best default. Tries PyPDF first and falls back to OCR if the PDF does not expose selectable text.</p>
+                        </li>
+                        <li class="method-card">
+                            <span class="method-card__title">PyPDF</span>
+                            <p class="method-card__text">Fastest option for digitally-created PDFs (exports from Google Docs, Word, etc.). Uses the embedded text layer.</p>
+                        </li>
+                        <li class="method-card">
+                            <span class="method-card__title">Tesseract OCR</span>
+                            <p class="method-card__text">Use for scanned documents. Converts each page to an image and runs Tesseract for English characters.</p>
+                        </li>
+                        <li class="method-card">
+                            <span class="method-card__title">EasyOCR</span>
+                            <p class="method-card__text">Similar to Tesseract but better for mixed or stylized fonts. Supports multiple languages if your PDFs include them.</p>
+                        </li>
+                    </ul>
+                </aside>
+            </div>
+
+            {% if text %}
+                <section class="extract-output">
+                    <div class="extract-output__header">
+                        <h2>Extracted text</h2>
+                        <button type="button" id="copy-current" class="ghost-button">Copy all</button>
+                    </div>
+                    <textarea class="result" id="current-result" readonly>{{ text }}</textarea>
+                </section>
+            {% endif %}
+        </section>
+
+        <!-- Activity/history sidebar -->
+        <section class="history-panel">
+            <div class="history-header">
+                <h2>Recent extractions</h2>
+                <p>Preview, copy, or download past extractions. Apply the same settings with one click.</p>
+            </div>
+            {% if history %}
+                <ul class="history-list">
+                    {% for item in history %}
+                        <li class="history-item">
+                            <div class="history-info">
+                                <p class="history-title">{{ item.title }}</p>
+                                <p class="history-meta">Method {{ item.method|title }} &middot; {{ item.page_range }} &middot; {{ item.created }}</p>
+                                {% if item.snippet %}
+                                    <p class="history-snippet">{{ item.snippet }}{% if item.snippet|length == 600 %}…{% endif %}</p>
+                                {% endif %}
+                            </div>
+                            <div class="history-actions">
+                                <button type="button"
+                                        class="ghost-button history-preview"
+                                        data-artifact="{{ item.artifact_id }}"
+                                        data-title="{{ item.title }}"
+                                        data-download="{% url 'extract_download' item.artifact_id %}">
+                                    Preview
+                                </button>
+                                <a class="ghost-button" href="{% url 'extract_download' item.artifact_id %}">Download</a>
+                                <button type="button"
+                                        class="ghost-button history-apply"
+                                        data-method="{{ item.method }}"
+                                        data-pages="{{ item.page_range }}">
+                                    Use settings
+                                </button>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-state">No extractions yet. Run your first extraction to build a history.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- Preview modal reused for historical extraction artifacts -->
+    <div class="preview-modal" id="preview-modal" hidden>
+        <div class="preview-modal__dialog">
+            <div class="preview-modal__header">
+                <h3 id="preview-title">Preview</h3>
+                <button type="button" id="preview-close">&times;</button>
+            </div>
+            <textarea id="preview-text" readonly></textarea>
+            <div class="preview-modal__actions">
+                <button type="button" id="preview-copy" class="primary-button">Copy</button>
+                <a id="preview-download" class="ghost-button" href="#" download>Download</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        const fileInput = document.getElementById("extract-file-input");
+        const fileLabel = document.getElementById("extract-file-label");
+        const selectButton = document.getElementById("extract-select-button");
+
+        // Mirror Splitter/Merger picker: open one dialog and keep status text in sync
+        function updateLabel(text) {
+            if (!fileLabel) return;
+            fileLabel.textContent = text;
+            if (text && text !== "No file selected yet.") {
+                fileLabel.classList.add("helper-text--file--active");
+            } else {
+                fileLabel.classList.remove("helper-text--file--active");
+            }
+        }
+
+        function openPicker(event) {
+            event?.preventDefault();
+            fileInput?.click();
+        }
+
+        fileInput?.addEventListener("change", (event) => {
+            const files = event.target.files;
+            if (!files || !files.length) {
+                updateLabel("No file selected yet.");
+                return;
+            }
+            updateLabel(`Selected: ${files[0].name}`);
+        });
+        selectButton?.addEventListener("click", openPicker);
+    })();
+
+    (function () {
+        const previewButtons = document.querySelectorAll(".history-preview");
+        const modal = document.getElementById("preview-modal");
+        const modalTitle = document.getElementById("preview-title");
+        const modalText = document.getElementById("preview-text");
+        const modalDownload = document.getElementById("preview-download");
+        const closeBtn = document.getElementById("preview-close");
+        const copyBtn = document.getElementById("preview-copy");
+
+        function openModal() {
+            modal?.removeAttribute("hidden");
+            document.body.classList.add("no-scroll");
+        }
+
+        function closeModal() {
+            modal?.setAttribute("hidden", "hidden");
+            document.body.classList.remove("no-scroll");
+        }
+
+        previewButtons.forEach((button) => {
+            button.addEventListener("click", async () => {
+                const artifactId = button.dataset.artifact;
+                if (!artifactId) return;
+                modalTitle.textContent = button.dataset.title || "Preview";
+                modalDownload.href = button.dataset.download || "#";
+                modalText.value = "Loading…";
+                openModal();
+                try {
+                    const response = await fetch(`/extract/${artifactId}/preview/`, { headers: { "X-Requested-With": "XMLHttpRequest" }});
+                    const data = await response.json();
+                    modalText.value = data.text || "";
+                } catch (error) {
+                    modalText.value = "Unable to load preview.";
+                }
+            });
+        });
+
+        closeBtn?.addEventListener("click", closeModal);
+        modal?.addEventListener("click", (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+        copyBtn?.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(modalText.value);
+            } catch (_) {}
+        });
+
+        const currentCopy = document.getElementById("copy-current");
+        const currentResult = document.getElementById("current-result");
+        // Quick copy for the most recent extraction result shown on the page
+        currentCopy?.addEventListener("click", async () => {
+            if (!currentResult) return;
+            try {
+                await navigator.clipboard.writeText(currentResult.value);
+            } catch (_) {}
+        });
+
+        const applyButtons = document.querySelectorAll(".history-apply");
+        const methodSelect = document.querySelector('select[name="method"]');
+        const pageInput = document.querySelector('input[name="pages"]');
+        // Restore historical settings so users can re-run an extraction quickly
+        applyButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const method = button.dataset.method;
+                const pages = button.dataset.pages;
+                if (method && methodSelect) {
+                    methodSelect.value = method;
+                }
+                if (pages && pageInput) {
+                    pageInput.value = pages === "All pages" ? "" : pages;
+                }
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

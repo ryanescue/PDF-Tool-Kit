@@ -1,3 +1,53 @@
+from django.conf import settings
+from django.core.files.storage import default_storage
 from django.db import models
 
-# Create your models here. for tables in our database ->Python classes could be something like Document, OperationJob, Signature
+
+class DocumentOperation(models.Model):
+    class OperationType(models.TextChoices):
+        MERGE = "merge", "Merge"
+        SPLIT = "split", "Split"
+        EXTRACT = "extract", "Extract"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="document_operations",
+    )
+    operation_type = models.CharField(max_length=10, choices=OperationType.choices)
+    source_name = models.CharField(max_length=255, blank=True)
+    output_name = models.CharField(max_length=255, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:  # pragma: no cover - simple repr
+        label = self.output_name or self.source_name or "Operation"
+        return f"{self.get_operation_type_display()} - {label}"
+
+
+class DocumentArtifact(models.Model):
+    operation = models.ForeignKey(
+        DocumentOperation,
+        on_delete=models.CASCADE,
+        related_name="artifacts",
+    )
+    file = models.FileField(upload_to="artifacts/%Y/%m/%d/")
+    display_name = models.CharField(max_length=255)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return self.display_name
+
+    def delete(self, using=None, keep_parents=False):
+        storage = self.file.storage or default_storage
+        name = self.file.name
+        super().delete(using=using, keep_parents=keep_parents)
+        if name:
+            storage.delete(name)

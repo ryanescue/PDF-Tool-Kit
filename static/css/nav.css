@@ -1,3 +1,7 @@
+body {
+    margin: 0;
+}
+
 .site-nav {
     display: flex;
     justify-content: space-between;
@@ -24,6 +28,10 @@
     gap: 1rem;
     margin: 0;
     padding: 0;
+}
+
+.site-nav__links .nav-user {
+    font-weight: 600;
 }
 
 .site-nav__links a:hover {

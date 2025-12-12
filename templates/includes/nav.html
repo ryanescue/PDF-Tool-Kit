@@ -6,9 +6,16 @@
         <a href="/">PDF Toolkit</a>
     </div>
     <ul class="site-nav__links">
-        <li><a href="/">Home</a></li>
-        <li><a href="{% url 'extract' %}">Extractor</a></li>
-        <li><a href="{% url 'merge_create' %}">Merge/Create</a></li>
-        <li><a href="{% url 'splitter' %}">Splitter</a></li>
+        {% if user.is_authenticated %}
+            <li><a href="/">Home</a></li>
+            <li><a href="{% url 'extract' %}">Extractor</a></li>
+            <li><a href="{% url 'merge_create' %}">Merge/Create</a></li>
+            <li><a href="{% url 'splitter' %}">Splitter</a></li>
+            <li class="nav-user">Hi, {{ user.username }}</li>
+            <li><a href="{% url 'logout' %}">Logout</a></li>
+        {% else %}
+            <li><a href="{% url 'login' %}">Login</a></li>
+            <li><a href="{% url 'signup' %}">Sign Up</a></li>
+        {% endif %}
     </ul>
 </nav>

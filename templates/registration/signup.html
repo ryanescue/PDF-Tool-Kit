@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Create account</title>
+    <link rel="stylesheet" href="{% static 'css/nav.css' %}">
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        main { padding: 2rem; max-width: 480px; margin: 0 auto; }
+        form { display: flex; flex-direction: column; gap: 1rem; border: 1px solid #d1d5db; padding: 1.25rem; }
+        button { background: #2563eb; color: #fff; border: none; padding: 0.75rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+    {% include 'includes/nav.html' %}
+    <main>
+        <h1>Create your account</h1>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <label>
+                Username
+                {{ form.username }}
+                {{ form.username.errors }}
+            </label>
+            <label>
+                Email (optional)
+                {{ form.email }}
+                {{ form.email.errors }}
+            </label>
+            <label>
+                Password
+                {{ form.password1 }}
+                {{ form.password1.errors }}
+            </label>
+            <label>
+                Confirm password
+                {{ form.password2 }}
+                {{ form.password2.errors }}
+            </label>
+            <button type="submit">Sign up</button>
+        </form>
+        <p>Already have an account? <a href="{% url 'login' %}">Sign in</a></p>
+    </main>
+</body>
+</html>

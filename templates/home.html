@@ -5,13 +5,62 @@
     <meta charset="utf-8">
     <title>PDF Toolkit</title>
     <link rel="stylesheet" href="{% static 'css/nav.css' %}">
+    <link rel="stylesheet" href="{% static 'css/home.css' %}">
 </head>
 <body>
     {% include 'includes/nav.html' %}
 
-    <main>
-        <h1>PDF Toolkit</h1>
-        <p>Use the navigation bar to jump into the extractor or other areas</p>
+    <main class="home-page">
+        <section class="home-hero">
+            <div>
+                <h1>PDF Toolkit</h1>
+                <p>Convert, merge, split, and manage your PDFs in one place. Use the navigation to start a new task.</p>
+            </div>
+            <div class="home-cta">
+                <a class="cta-button" href="{% url 'merge_create' %}">Create PDF</a>
+                <a class="cta-button ghost" href="{% url 'splitter' %}">Split PDF</a>
+            </div>
+        </section>
+
+        <section class="home-history">
+            <div class="history-header">
+                <h2>Your recent files</h2>
+                <p>Download any document you've worked on recently.</p>
+            </div>
+            {% if history %}
+                <ul class="history-list">
+                    {% for record in history %}
+                        <li class="history-item">
+                            <div>
+                                <p class="history-title">{{ record.title }}</p>
+                                <p class="history-meta">{{ record.meta }} &middot; {{ record.created }}</p>
+                                {% if record.type == "extract" and record.snippet %}
+                                    <p class="history-snippet">{{ record.snippet }}{% if record.snippet|length == 600 %}…{% endif %}</p>
+                                {% endif %}
+                            </div>
+                            {% if record.type == "merge" %}
+                                <a class="download-link" href="{% url 'merge_download' record.artifact_id %}">&#8681;</a>
+                            {% elif record.type == "split" %}
+                                <ul class="history-downloads">
+                                    {% for segment in record.segments %}
+                                        <li>
+                                            <span>{{ segment.label }}</span>
+                                            <a class="download-link" href="{% url 'split_download' segment.artifact_id %}">&#8681;</a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% elif record.type == "extract" %}
+                                <div class="history-actions">
+                                    <a class="download-link" href="{% url 'extract_download' record.artifact_id %}">&#8681;</a>
+                                </div>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-state">You haven't processed any files yet. Merge or split a PDF to see it here.</p>
+            {% endif %}
+        </section>
     </main>
 </body>
 </html>

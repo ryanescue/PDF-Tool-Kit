@@ -90,14 +90,19 @@
                                                 <p class="segment-item__label">{{ segment.label }}</p>
                                                 <p class="segment-item__name">{{ segment.name }}</p>
                                             </div>
-                                            <a class="download-link" href="{% url 'split_download' record.id segment.id %}" aria-label="Download {{ segment.name }}">&#8681;</a>
+                                            <a class="download-link" href="{% url 'split_download' segment.artifact_id %}" aria-label="Download {{ segment.name }}">&#8681;</a>
                                         </li>
                                     {% endfor %}
                                 </ul>
                             {% elif record.type == "merge" %}
                                 <div class="segment-item merge-activity">
                                     <p class="segment-item__label">Combined output ({{ record.total }} file{% if record.total != 1 %}s{% endif %})</p>
-                                    <a class="download-link" href="{% url 'merge_download' record.id %}" aria-label="Download {{ record.title }}">&#8681;</a>
+                                    <a class="download-link" href="{% url 'merge_download' record.artifact_id %}" aria-label="Download {{ record.title }}">&#8681;</a>
+                                </div>
+                            {% elif record.type == "extract" %}
+                                <div class="segment-item merge-activity">
+                                    <p class="segment-item__label">Extracted text</p>
+                                    <a class="download-link" href="{% url 'extract_download' record.artifact_id %}" aria-label="Download {{ record.title }}">&#8681;</a>
                                 </div>
                             {% endif %}
                         </li>
