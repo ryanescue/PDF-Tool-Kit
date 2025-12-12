@@ -34,14 +34,49 @@
                     <input type="file" id="extract-file-input" name="pdf" accept="application/pdf" required hidden>
 
                     <div class="form-grid">
-                        <label>
-                            Method
+                        <label class="method-field">
+                            <span class="method-label__text">
+                                Method
+                                <button type="button"
+                                        class="info-bubble"
+                                        id="method-info-trigger"
+                                        aria-expanded="false"
+                                        aria-controls="method-info-popover">
+                                    <span class="visually-hidden">Which method should I use?</span>
+                                    i
+                                </button>
+                            </span>
                             <select name="method">
                                 <option value="auto" {% if selected_method == "auto" %}selected{% endif %}>Auto</option>
                                 <option value="pypdf" {% if selected_method == "pypdf" %}selected{% endif %}>PyPDF</option>
                                 <option value="tesseract" {% if selected_method == "tesseract" %}selected{% endif %}>Tesseract</option>
                                 <option value="easyocr" {% if selected_method == "easyocr" %}selected{% endif %}>EasyOCR</option>
                             </select>
+                            <div class="method-info-popover" id="method-info-popover" role="dialog" aria-labelledby="method-info-title">
+                                <div class="method-info-popover__header">
+                                    <h3 id="method-info-title">Which method should I use?</h3>
+                                    <button type="button" class="method-info-close" id="method-info-close" aria-label="Close method tips">&times;</button>
+                                </div>
+                                <p class="method-helper__lede">Pick the option that matches the type of PDF you uploaded.</p>
+                                <ul class="method-cards">
+                                    <li class="method-card">
+                                        <span class="method-card__title">Auto</span>
+                                        <p class="method-card__text">Best default. Tries PyPDF first and falls back to OCR if the PDF does not expose selectable text.</p>
+                                    </li>
+                                    <li class="method-card">
+                                        <span class="method-card__title">PyPDF</span>
+                                        <p class="method-card__text">Fastest option for digitally-created PDFs (exports from Google Docs, Word, etc.). Uses the embedded text layer.</p>
+                                    </li>
+                                    <li class="method-card">
+                                        <span class="method-card__title">Tesseract OCR</span>
+                                        <p class="method-card__text">Use for scanned documents. Converts each page to an image and runs Tesseract for English characters.</p>
+                                    </li>
+                                    <li class="method-card">
+                                        <span class="method-card__title">EasyOCR</span>
+                                        <p class="method-card__text">Similar to Tesseract but better for mixed or stylized fonts. Supports multiple languages if your PDFs include them.</p>
+                                    </li>
+                                </ul>
+                            </div>
                         </label>
 
                         <label>
@@ -58,30 +93,6 @@
 
                     <button type="submit" class="primary-button">Extract</button>
                 </form>
-
-                <!-- Right column: contextual helper describing extraction methods -->
-                <aside class="method-helper" aria-label="Extraction method tips">
-                    <h3>Which method should I use?</h3>
-                    <p class="method-helper__lede">Pick the option that matches the type of PDF you uploaded.</p>
-                    <ul class="method-cards">
-                        <li class="method-card">
-                            <span class="method-card__title">Auto</span>
-                            <p class="method-card__text">Best default. Tries PyPDF first and falls back to OCR if the PDF does not expose selectable text.</p>
-                        </li>
-                        <li class="method-card">
-                            <span class="method-card__title">PyPDF</span>
-                            <p class="method-card__text">Fastest option for digitally-created PDFs (exports from Google Docs, Word, etc.). Uses the embedded text layer.</p>
-                        </li>
-                        <li class="method-card">
-                            <span class="method-card__title">Tesseract OCR</span>
-                            <p class="method-card__text">Use for scanned documents. Converts each page to an image and runs Tesseract for English characters.</p>
-                        </li>
-                        <li class="method-card">
-                            <span class="method-card__title">EasyOCR</span>
-                            <p class="method-card__text">Similar to Tesseract but better for mixed or stylized fonts. Supports multiple languages if your PDFs include them.</p>
-                        </li>
-                    </ul>
-                </aside>
             </div>
 
             {% if text %}
@@ -138,19 +149,19 @@
     </main>
 
     <!-- Preview modal reused for historical extraction artifacts -->
-    <div class="preview-modal" id="preview-modal" hidden>
-        <div class="preview-modal__dialog">
-            <div class="preview-modal__header">
-                <h3 id="preview-title">Preview</h3>
-                <button type="button" id="preview-close">&times;</button>
-            </div>
-            <textarea id="preview-text" readonly></textarea>
-            <div class="preview-modal__actions">
-                <button type="button" id="preview-copy" class="primary-button">Copy</button>
-                <a id="preview-download" class="ghost-button" href="#" download>Download</a>
+        <div class="preview-modal" id="preview-modal">
+            <div class="preview-modal__dialog">
+                <div class="preview-modal__header">
+                    <h3 id="preview-title">Preview</h3>
+                    <button type="button" id="preview-close">&times;</button>
+                </div>
+                <textarea id="preview-text" readonly></textarea>
+                <div class="preview-modal__actions">
+                    <button type="button" id="preview-copy" class="primary-button">Copy</button>
+                    <a id="preview-download" class="ghost-button" href="#" download>Download</a>
+                </div>
             </div>
         </div>
-    </div>
 
     <script>
     (function () {
@@ -195,12 +206,12 @@
         const copyBtn = document.getElementById("preview-copy");
 
         function openModal() {
-            modal?.removeAttribute("hidden");
+            modal?.classList.add("is-visible");
             document.body.classList.add("no-scroll");
         }
 
         function closeModal() {
-            modal?.setAttribute("hidden", "hidden");
+            modal?.classList.remove("is-visible");
             document.body.classList.remove("no-scroll");
         }
 
@@ -260,6 +271,53 @@
                 }
                 window.scrollTo({ top: 0, behavior: "smooth" });
             });
+        });
+    })();
+
+    (function () {
+        const trigger = document.getElementById("method-info-trigger");
+        const popover = document.getElementById("method-info-popover");
+        const closeBtn = document.getElementById("method-info-close");
+
+        if (!trigger || !popover) return;
+
+        function openInfo() {
+            popover.classList.add("is-visible");
+            trigger.setAttribute("aria-expanded", "true");
+        }
+
+        function closeInfo() {
+            popover.classList.remove("is-visible");
+            trigger.setAttribute("aria-expanded", "false");
+        }
+
+        trigger.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (popover.classList.contains("is-visible")) {
+                closeInfo();
+            } else {
+                openInfo();
+            }
+        });
+
+        closeBtn?.addEventListener("click", (event) => {
+            event.stopPropagation();
+            closeInfo();
+        });
+
+        document.addEventListener("click", (event) => {
+            if (!popover.classList.contains("is-visible")) {
+                return;
+            }
+            if (!popover.contains(event.target) && event.target !== trigger) {
+                closeInfo();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && popover.classList.contains("is-visible")) {
+                closeInfo();
+            }
         });
     })();
     </script>

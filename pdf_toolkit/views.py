@@ -246,8 +246,9 @@ def extract_preview(request, artifact_id: int):
         operation__user=request.user,
         operation__operation_type=DocumentOperation.OperationType.EXTRACT,
     )
-    with artifact.file.open("r", encoding="utf-8", errors="replace") as handle:
-        text = handle.read()
+    with artifact.file.open("rb") as handle:
+        text_bytes = handle.read()
+    text = text_bytes.decode("utf-8", errors="replace")
     return JsonResponse({"text": text})
 
 

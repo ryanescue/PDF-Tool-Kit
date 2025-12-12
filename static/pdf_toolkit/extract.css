@@ -15,10 +15,7 @@
 }
 
 .extract-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
-    gap: 1.75rem;
-    align-items: flex-start;
+    display: block;
 }
 
 .extract-header h1 {
@@ -67,6 +64,73 @@
     flex-direction: column;
     gap: 0.35rem;
     font-weight: 600;
+}
+
+.method-field {
+    position: relative;
+}
+
+.method-label__text {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.info-bubble {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid #1f2937;
+    background: #fff;
+    color: #1f2937;
+    font-size: 0.8rem;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.method-info-popover {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    width: min(420px, 90vw);
+    background: #fff;
+    border: 1px solid #d97706;
+    border-radius: 0.4rem;
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.15);
+    padding: 1rem;
+    display: none;
+    z-index: 10;
+}
+
+.method-info-popover.is-visible {
+    display: block;
+}
+
+.method-info-popover__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.method-info-close {
+    border: none;
+    background: transparent;
+    font-size: 1.25rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
 }
 
 .form-grid select,
@@ -243,16 +307,23 @@
 .empty-state {
     color: #6b7280;
 }
-
-/* Preview modal shell */
 .preview-modal {
     position: fixed;
     inset: 0;
     background: rgba(15, 23, 42, 0.6);
-    display: flex;
+    display: none;          /* HIDDEN BY DEFAULT */
     align-items: center;
     justify-content: center;
     z-index: 100;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.preview-modal.is-visible {
+    display: flex;          /* SHOWN WHEN is-visible IS ADDED */
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .preview-modal__dialog {
