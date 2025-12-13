@@ -1,5 +1,5 @@
 from django.contrib.auth import login, logout
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required #requires login
 from django.shortcuts import redirect, render
 
 from .forms import JoinForm, LoginForm
@@ -19,6 +19,7 @@ def signup(request):
 
 def user_login(request):
     if request.method == "POST":
+        #authentication fporm performs val
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()

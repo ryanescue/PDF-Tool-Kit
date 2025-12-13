@@ -1,3 +1,4 @@
+/* Layout + panels */
 .split-page {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -10,18 +11,22 @@
 .split-history {
     background: #fff;
     border: 1px solid #e5e7eb;
-    border-radius: 0;
     padding: 1.5rem;
     box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
 }
 
 .split-builder h1 {
-    margin-top: 0;
+    margin: 0;
 }
 
-.split-builder .lede {
-    margin-top: 0.25rem;
-    color: #4b5563;
+.split-builder .lede,
+.helper-text,
+.helper-text--file,
+.split-history__meta-text,
+.segment-item__name,
+.empty-state,
+.empty-state-sm {
+    color: #6b7280;
 }
 
 .split-form {
@@ -31,22 +36,18 @@
     gap: 1rem;
 }
 
+/* File picker + controls */
 .file-picker {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.65rem 1.25rem;
-    border-radius: 0;
     background: #1f2937;
     color: #fff;
     font-weight: 600;
     cursor: pointer;
     width: fit-content;
-}
-
-.file-picker {
-    position: relative;
-    overflow: hidden;
 }
 
 .file-picker input[type="file"] {
@@ -70,11 +71,9 @@
     flex: 1;
     padding: 0.5rem;
     border: 1px solid #d1d5db;
-    border-radius: 0;
 }
 
 .helper-text {
-    color: #6b7280;
     margin: 0.25rem 0 0;
     font-size: 0.9rem;
 }
@@ -88,9 +87,9 @@
     font-weight: 600;
 }
 
+/* Marker list */
 .split-markers {
     border: 1px solid #d1d5db;
-    border-radius: 0;
     padding: 1rem;
     background: #f9fafb;
 }
@@ -122,7 +121,6 @@
     gap: 0.75rem;
     padding: 0.5rem 0.75rem;
     border: 1px solid #fde68a;
-    border-radius: 0;
     background: #fffbeb;
 }
 
@@ -130,7 +128,6 @@
     width: 4px;
     height: 36px;
     background: #dc2626;
-    border-radius: 0;
 }
 
 .split-marker__body {
@@ -142,11 +139,11 @@
     font-size: 0.95rem;
 }
 
+/* Buttons */
 .ghost-button,
 .primary-button {
     cursor: pointer;
     border: none;
-    border-radius: 0;
     padding: 0.45rem 0.85rem;
     font-size: 0.85rem;
 }
@@ -165,13 +162,13 @@
 .primary-button {
     background: #2563eb;
     color: #fff;
-    font-weight: bold;
+    font-weight: 700;
     padding: 0.75rem;
 }
 
+/* Messages */
 .flash {
     padding: 0.75rem 1rem;
-    border-radius: 0;
     font-weight: 600;
 }
 
@@ -185,6 +182,7 @@
     color: #166534;
 }
 
+/* History */
 .split-history__list {
     list-style: none;
     margin: 1rem 0 0;
@@ -196,7 +194,6 @@
 
 .split-history__item {
     border: 1px solid #e5e7eb;
-    border-radius: 0;
     padding: 1rem;
     background: #f9fafb;
 }
@@ -214,12 +211,6 @@
     font-weight: 600;
 }
 
-.split-history__meta-text {
-    margin: 0.25rem 0 0;
-    color: #6b7280;
-    font-size: 0.9rem;
-}
-
 .segment-list {
     list-style: none;
     margin: 0.75rem 0 0;
@@ -234,7 +225,6 @@
     justify-content: space-between;
     align-items: center;
     border: 1px solid #e5e7eb;
-    border-radius: 0;
     padding: 0.65rem 0.75rem;
     background: #fff;
 }
@@ -242,12 +232,6 @@
 .segment-item__label {
     margin: 0;
     font-weight: 600;
-}
-
-.segment-item__name {
-    margin: 0.15rem 0 0;
-    color: #6b7280;
-    font-size: 0.85rem;
 }
 
 .download-link {
@@ -260,16 +244,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 0;
-}
-
-.empty-state,
-.empty-state-sm {
-    color: #6b7280;
-}
-
-.empty-state-sm {
-    margin: 0;
 }
 
 @media (max-width: 600px) {

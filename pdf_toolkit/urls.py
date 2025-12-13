@@ -1,10 +1,9 @@
-from django.urls import path  # Django URL dispatcher helper
-
-from . import views  # Local view module
+from django.urls import path  
+from . import views  #local view module
 
 urlpatterns = [
     path('', views.home, name='home'),
-    path('server_info/', views.server_info, name='server_info'),  # optional to have it here too
+    path('server_info/', views.server_info, name='server_info'),  #optional
     path('extract/', views.extract_view, name='extract'),
     path('extract/<int:artifact_id>/download/', views.download_extract_result, name='extract_download'),
     path('extract/<int:artifact_id>/preview/', views.extract_preview, name='extract_preview'),

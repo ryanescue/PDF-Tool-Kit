@@ -1,32 +1,28 @@
-"""Views for the PDF toolkit app."""
-
-import os  # stdlib helper to delete tmp files
-import re  # filename normalization
-import tempfile  # stdlib helper for creating temp files
-from pathlib import Path  # stdlib path helper for temp files
-
-import requests  # hTTP client used for diagnostics in server_info
-from django.conf import settings  # django settings object for diagnostics
+import os
+import re #filename normalization
+import tempfile #creating temp files
+from pathlib import Path 
+import requests 
+from django.conf import settings 
 from django.contrib.auth.decorators import login_required
 from django.core.files import File
 from django.core.files.base import ContentFile
-from django.http import FileResponse, HttpResponse, JsonResponse  # HTTP responses
-from django.shortcuts import get_object_or_404, render  # template rendering helper
-from django.views.decorators.http import require_http_methods  # restrict HTTP verbs
+from django.http import FileResponse, HttpResponse, JsonResponse 
+from django.shortcuts import get_object_or_404, render  #template rendering
+from django.views.decorators.http import require_http_methods
 
 from .models import DocumentArtifact, DocumentOperation
-from .services.pdf_extractor import Method, extract_pdf_text  # shared PDF extraction logic
-from .services.pdf_merger import merge_uploaded_files  # PDF merge helpers
-from .services.pdf_splitter import SplitError, split_pdf  # PDF split helpers
+from .services.pdf_extractor import extract_pdf_text #PDF extraction logic
+from .services.pdf_merger import merge_uploaded_files #PDF merge helpers
+from .services.pdf_splitter import SplitError, split_pdf #PDF split helpers
 
 
 @login_required(login_url="login")
-def home(request):
+def home(request):#home = recent activity for each user
     history = _build_activity_history(request.user)
     return render(request, "home.html", {"history": history})
 
-
-def server_info(request):
+def server_info(request): #diagnostic endpoint that returns environment metadata --Was having issues with enviremonet variables 
     server_geodata = requests.get("https://ipwhois.app/json/").json()
     settings_dump = settings.__dict__
     return HttpResponse(f"{server_geodata}{settings_dump}")
@@ -34,18 +30,12 @@ def server_info(request):
 
 @login_required(login_url="login")
 @require_http_methods(["GET", "POST"])
-def extract_view(request):
-    """
-    Upload view that accepts PDFs and returns the extracted text.
+def extract_view(request): #Upload view
+    method=request.POST.get("method", "auto")
+    normalize_requested=bool(request.POST.get("normalize"))
+    page_range_raw=request.POST.get("pages", "")
 
-    Heavy OCR work happens in the shared service to keep the view lean.
-    """
-
-    method: Method = request.POST.get("method", "auto")  # type: ignore[assignment]
-    normalize_requested = bool(request.POST.get("normalize"))
-    page_range_raw = request.POST.get("pages", "")
-
-    context = {
+    context = { #base template
         "selected_method": method,
         "normalize": normalize_requested,
         "pages": page_range_raw,
@@ -53,7 +43,6 @@ def extract_view(request):
         "error": "",
         "history": _extract_history_for_user(request.user),
     }
-
     if request.method == "POST":
         try:
             pages = _parse_page_range(page_range_raw)
@@ -61,7 +50,7 @@ def extract_view(request):
             context["error"] = str(exc)
             return render(request, "pdf_toolkit/extract.html", context)
 
-        uploaded_file = request.FILES.get("pdf")
+        uploaded_file = request.FILES.get("pdf") #grabs the uploaded file from request.FILES["pdf"]
         if not uploaded_file:
             context["error"] = "Please upload a PDF before submitting"
         else:
@@ -102,9 +91,7 @@ def extract_view(request):
 
 @login_required(login_url="login")
 @require_http_methods(["GET", "POST"])
-def merge_create_view(request):
-    """Upload + ordering workflow for merging heterogeneous files into PDF."""
-
+def merge_create_view(request):#upload + ordering workflow for merging heterogeneous files into PDF
     allowed_attr = ".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
     context = {
         "history": _merge_history_for_user(request.user),
@@ -141,7 +128,7 @@ def merge_create_view(request):
 
 
 @login_required(login_url="login")
-def download_merge_result(request, artifact_id: int):
+def download_merge_result(request, artifact_id): #merged PDF artifact belonging to the current user
     artifact = get_object_or_404(
         DocumentArtifact,
         pk=artifact_id,
@@ -157,9 +144,7 @@ def download_merge_result(request, artifact_id: int):
 
 @login_required(login_url="login")
 @require_http_methods(["GET", "POST"])
-def splitter_view(request):
-    """Split PDFs by user-selected page markers."""
-
+def splitter_view(request): #split PDFs by user-selected page markers Used AI to assist
     context = {
         "error": "",
         "success": "",
@@ -170,7 +155,6 @@ def splitter_view(request):
     if request.method == "POST":
         uploaded_file = request.FILES.get("pdf")
         split_points = _parse_split_points(request.POST.get("split_points", ""))
-
         if not uploaded_file:
             context["error"] = "Upload a PDF before splitting."
         elif not split_points:
@@ -179,7 +163,7 @@ def splitter_view(request):
             suffix = Path(uploaded_file.name).suffix or ".pdf"
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
             try:
-                for chunk in uploaded_file.chunks():
+                for chunk in uploaded_file.chunks(): #AI assist here as i couldnt get it to split correctly
                     temp_file.write(chunk)
                 temp_file.flush()
                 temp_path = Path(temp_file.name)
@@ -209,43 +193,27 @@ def splitter_view(request):
 
 
 @login_required(login_url="login")
-def download_split_result(request, artifact_id: int):
-    artifact = get_object_or_404(
+def download_split_result(request, artifact_id): #1 of the split segment PDFs after verifying ownership
+    artifact= get_object_or_404(
         DocumentArtifact,
         pk=artifact_id,
         operation__user=request.user,
-        operation__operation_type=DocumentOperation.OperationType.SPLIT,
-    )
+        operation__operation_type=DocumentOperation.OperationType.SPLIT,)
     return FileResponse(
         artifact.file.open("rb"),
         as_attachment=True,
-        filename=artifact.display_name or "split.pdf",
-    )
+        filename=artifact.display_name or "split.pdf",)
 
 
 @login_required(login_url="login")
-def download_extract_result(request, artifact_id: int):
-    artifact = get_object_or_404(
-        DocumentArtifact,
-        pk=artifact_id,
-        operation__user=request.user,
-        operation__operation_type=DocumentOperation.OperationType.EXTRACT,
-    )
-    return FileResponse(
-        artifact.file.open("rb"),
-        as_attachment=True,
-        filename=artifact.display_name or "extracted.txt",
-    )
+def download_extract_result(request, artifact_id): #return the extracted text as a downloadable file for the user
+    artifact= get_object_or_404( DocumentArtifact, pk=artifact_id, operation__user=request.user, operation__operation_type=DocumentOperation.OperationType.EXTRACT,)
+    return FileResponse( artifact.file.open("rb"), as_attachment=True, filename=artifact.display_name or "extracted.txt",)
 
 
 @login_required(login_url="login")
-def extract_preview(request, artifact_id: int):
-    artifact = get_object_or_404(
-        DocumentArtifact,
-        pk=artifact_id,
-        operation__user=request.user,
-        operation__operation_type=DocumentOperation.OperationType.EXTRACT,
-    )
+def extract_preview(request, artifact_id): #Return JSON containing the text snippet for preview card
+    artifact= get_object_or_404(DocumentArtifact, pk=artifact_id, operation__user=request.user, operation__operation_type=DocumentOperation.OperationType.EXTRACT,)
     with artifact.file.open("rb") as handle:
         text_bytes = handle.read()
     text = text_bytes.decode("utf-8", errors="replace")
@@ -253,6 +221,7 @@ def extract_preview(request, artifact_id: int):
 
 
 def _normalize_output_name(raw_name: str) -> str:
+    #AI to help me sanitise
     base = raw_name or "merged-pack"
     if base.lower().endswith(".pdf"):
         base = base[:-4]
@@ -260,13 +229,13 @@ def _normalize_output_name(raw_name: str) -> str:
     return f"{sanitized}.pdf"
 
 
-def _safe_text_filename(source_name: str) -> str:
+def _safe_text_filename(source_name: str) -> str: #generates filename
     base = Path(source_name).stem or "extracted"
     sanitized = re.sub(r"[^A-Za-z0-9._-]+", "-", base).strip("-_.") or "extracted"
     return f"{sanitized}-text.txt"
 
 
-def _parse_split_points(raw_value: str) -> list[int]:
+def _parse_split_points(raw_value): #turns input into ints
     if not raw_value:
         return []
     candidates = re.split(r"[,\s]+", raw_value)
@@ -283,7 +252,8 @@ def _parse_split_points(raw_value: str) -> list[int]:
     return points
 
 
-def _parse_page_range(raw_value: str) -> list[int]:
+def _parse_page_range(raw_value):
+    #inputs like '1-3,8' into a sorted list
     if not raw_value:
         return []
     cleaned: list[int] = []
@@ -296,7 +266,7 @@ def _parse_page_range(raw_value: str) -> list[int]:
             try:
                 start = int(start_str)
                 end = int(end_str)
-            except ValueError as exc:  # pragma: no cover - user input guard
+            except ValueError as exc:  # AI Assisted here - pragma: no cover - user input guard
                 raise ValueError("Use numeric page ranges like 3-5") from exc
             if start <= 0 or end <= 0 or end < start:
                 raise ValueError("Page ranges must be positive and increasing")
@@ -304,7 +274,7 @@ def _parse_page_range(raw_value: str) -> list[int]:
         else:
             try:
                 value = int(part)
-            except ValueError as exc:  # pragma: no cover
+            except ValueError as exc:  # AI assisted here - pragma: no cover
                 raise ValueError("Pages must be numbers like 2 or 4-6") from exc
             if value <= 0:
                 raise ValueError("Page numbers must be positive")
@@ -312,111 +282,66 @@ def _parse_page_range(raw_value: str) -> list[int]:
     return sorted(set(cleaned))
 
 
-def _persist_merge_result(*, user, output_name: str, merged_path: Path, filenames):
+def _persist_merge_result(*, user, output_name, merged_path, filenames): # Persist merged metadata & the merged PDF file/arti
     total_files = len(filenames)
-    operation = DocumentOperation.objects.create(
-        user=user,
-        operation_type=DocumentOperation.OperationType.MERGE,
-        output_name=output_name,
+    operation = DocumentOperation.objects.create(user=user, operation_type=DocumentOperation.OperationType.MERGE, output_name=output_name,
         metadata={
             "total_files": total_files,
             "source_files": filenames,
-        },
-    )
-    artifact = DocumentArtifact(
-        operation=operation,
-        display_name=output_name,
-        metadata={"total_files": total_files},
-    )
+        },)
+    artifact = DocumentArtifact( operation=operation, display_name=output_name, metadata={"total_files": total_files},)
     with open(merged_path, "rb") as merged_file:
         artifact.file.save(Path(output_name).name, File(merged_file), save=True)
     Path(merged_path).unlink(missing_ok=True)
     return artifact
 
 
-def _persist_split_results(
-    *,
-    user,
-    uploaded_name: str,
-    segments,
-    split_points,
-    total_pages: int,
-):
-    operation = DocumentOperation.objects.create(
-        user=user,
-        operation_type=DocumentOperation.OperationType.SPLIT,
-        source_name=uploaded_name,
+def _persist_split_results(*, user, uploaded_name, segments, split_points, total_pages,): #stores each split chunk as its own file
+    operation = DocumentOperation.objects.create( user=user, operation_type=DocumentOperation.OperationType.SPLIT, source_name=uploaded_name,
         metadata={
             "split_points": sorted(set(int(p) for p in split_points if isinstance(p, int))),
             "total_pages": total_pages,
-        },
-    )
-    base_name = Path(uploaded_name).stem or "split"
+        },)
+    base_name= Path(uploaded_name).stem or "split" #AI Assisted - I was struggleing on the persistant data I Was loosing it
     for segment in segments:
-        label = f"Pages {segment.start_page} - {segment.end_page}"
-        display_name = _normalize_output_name(
+        label= f"Pages {segment.start_page} - {segment.end_page}"
+        display_name= _normalize_output_name(
             f"{base_name}-part-{segment.index}-pages-{segment.start_page}-{segment.end_page}"
         )
-        artifact = DocumentArtifact(
-            operation=operation,
-            display_name=display_name,
+        artifact = DocumentArtifact( operation=operation, display_name=display_name,
             metadata={
                 "label": label,
                 "start_page": segment.start_page,
                 "end_page": segment.end_page,
-            },
-        )
+            },)
         with open(segment.path, "rb") as split_file:
             artifact.file.save(display_name, File(split_file), save=True)
         Path(segment.path).unlink(missing_ok=True)
     return operation
 
 
-def _persist_extract_result(
-    *,
-    user,
-    source_name: str,
-    text: str,
-    method: str,
-    normalize: bool,
-    page_range: str,
-):
-    filename = _safe_text_filename(source_name)
-    operation = DocumentOperation.objects.create(
-        user=user,
-        operation_type=DocumentOperation.OperationType.EXTRACT,
-        source_name=source_name,
-        output_name=filename,
+def _persist_extract_result( *, user, source_name, text, method, normalize, page_range, ): #extracted text as a plaintext file & metadata row
+    filename= _safe_text_filename(source_name)
+    operation= DocumentOperation.objects.create( user=user, operation_type=DocumentOperation.OperationType.EXTRACT, source_name=source_name, output_name=filename,
         metadata={
             "method": method,
             "normalize": normalize,
             "page_range": page_range,
             "characters": len(text),
-        },
-    )
-    snippet = text[:600]
-    artifact = DocumentArtifact(
-        operation=operation,
-        display_name=filename,
+        },)
+    snippet= text[:600]
+    artifact= DocumentArtifact(operation=operation, display_name=filename,
         metadata={
             "snippet": snippet,
             "characters": len(text),
-        },
-    )
+        },)
     artifact.file.save(filename, ContentFile(text), save=True)
     return artifact
 
 
-def _merge_history_for_user(user, limit: int = 10):
-    operations = (
-        DocumentOperation.objects.filter(
-            user=user,
-            operation_type=DocumentOperation.OperationType.MERGE,
-        )
-        .prefetch_related("artifacts")
-        .order_by("-created_at")[:limit]
-    )
-    history = []
+def _merge_history_for_user(user, limit=10): #simplified list of recent merge operations
+    operations= (DocumentOperation.objects.filter(user=user, operation_type=DocumentOperation.OperationType.MERGE,).prefetch_related("artifacts").order_by("-created_at")[:limit])
+    history= []
     for operation in operations:
         artifact = operation.artifacts.first()
         if not artifact:
@@ -433,15 +358,8 @@ def _merge_history_for_user(user, limit: int = 10):
     return history
 
 
-def _extract_history_for_user(user, limit: int = 10):
-    operations = (
-        DocumentOperation.objects.filter(
-            user=user,
-            operation_type=DocumentOperation.OperationType.EXTRACT,
-        )
-        .prefetch_related("artifacts")
-        .order_by("-created_at")[:limit]
-    )
+def _extract_history_for_user(user, limit=10):#history specific to extraction
+    operations = (DocumentOperation.objects.filter( user=user, operation_type=DocumentOperation.OperationType.EXTRACT,) .prefetch_related("artifacts") .order_by("-created_at")[:limit])
     history = []
     for operation in operations:
         artifact = operation.artifacts.first()
@@ -460,62 +378,40 @@ def _extract_history_for_user(user, limit: int = 10):
     return history
 
 
-def _build_activity_history(user, limit: int = 10):
-    operations = (
-        DocumentOperation.objects.filter(user=user)
-        .prefetch_related("artifacts")
-        .order_by("-created_at")[:limit]
-    )
-    activity = []
-    for operation in operations:
-        entry = {
-            "type": operation.operation_type,
-            "title": operation.output_name or operation.source_name or operation.get_operation_type_display(),
-            "created": operation.created_at.strftime("%Y-%m-%d %H:%M"),
-            "meta": "",
+def _build_activity_history(user, limit=10): #AI assisted 
+    entries = []
+    qs = DocumentOperation.objects.filter(user=user).prefetch_related("artifacts").order_by("-created_at")[:limit]
+    for op in qs:
+        base = {
+            "type": op.operation_type,
+            "title": op.output_name or op.source_name or op.get_operation_type_display(),
+            "created": op.created_at.strftime("%Y-%m-%d %H:%M"),
+            "segments": [],
         }
-        if operation.operation_type == DocumentOperation.OperationType.MERGE:
-            artifact = operation.artifacts.first()
+        if op.operation_type == DocumentOperation.OperationType.MERGE: #AI
+            artifact = op.artifacts.first()
             if not artifact:
                 continue
-            total_files = artifact.metadata.get("total_files") or operation.metadata.get("total_files", 0)
-            entry.update(
-                {
-                    "meta": f"Merged {total_files} file{'s' if total_files != 1 else ''}",
-                    "total": total_files,
-                    "artifact_id": artifact.id,
-                    "segments": [],
-                }
-            )
-        elif operation.operation_type == DocumentOperation.OperationType.SPLIT:
-            segments = []
-            for artifact in operation.artifacts.all():
-                segments.append(
+            total = artifact.metadata.get("total_files") or op.metadata.get("total_files", 0)
+            base["meta"] = f"Merged {total} file{'s' if total != 1 else ''}"
+            base["artifact_id"] = artifact.id
+        elif op.operation_type == DocumentOperation.OperationType.SPLIT:
+            base["meta"] = f"{op.metadata.get('total_pages', 0)} pages split"
+            base["split_points"] = op.metadata.get("split_points", [])
+            for art in op.artifacts.all():
+                base["segments"].append(
                     {
-                        "label": artifact.metadata.get("label", artifact.display_name),
-                        "name": artifact.display_name,
-                        "artifact_id": artifact.id,
+                        "label": art.metadata.get("label", art.display_name),
+                        "name": art.display_name,
+                        "artifact_id": art.id,
                     }
                 )
-            entry.update(
-                {
-                    "meta": f"{operation.metadata.get('total_pages', 0)} pages split",
-                    "split_points": operation.metadata.get("split_points", []),
-                    "segments": segments,
-                }
-            )
-        else:  # extract history
-            artifact = operation.artifacts.first()
+        else: #AI
+            artifact = op.artifacts.first()
             if not artifact:
                 continue
-            snippet = artifact.metadata.get("snippet", "")
-            entry.update(
-                {
-                    "meta": f"Extracted via {operation.metadata.get('method', 'auto').title()}",
-                    "artifact_id": artifact.id,
-                    "snippet": snippet,
-                    "segments": [],
-                }
-            )
-        activity.append(entry)
-    return activity
+            base["artifact_id"] = artifact.id
+            base["meta"] = f"Extracted via {op.metadata.get('method', 'auto').title()}"
+            base["snippet"] = artifact.metadata.get("snippet", "")
+        entries.append(base)
+    return entries

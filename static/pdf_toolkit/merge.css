@@ -1,3 +1,4 @@
+/* Layout + panels */
 .merge-page {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -10,19 +11,21 @@
 .merge-history {
     background: #fff;
     border: 1px solid #e5e7eb;
-    border-radius: 0;
     padding: 1.5rem;
     box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
 }
 
 .merge-builder h1 {
-    margin-top: 0;
-    margin-bottom: 0.5rem;
+    margin: 0 0 0.5rem;
 }
 
-.merge-builder .lede {
-    color: #4b5563;
-    margin-top: 0;
+.merge-builder .lede,
+.helper-text,
+.history-header p,
+.history-item__meta,
+.empty-state,
+.empty-state-sm {
+    color: #6b7280;
 }
 
 .merge-form {
@@ -32,6 +35,7 @@
     gap: 1rem;
 }
 
+/* Buttons + helpers */
 .ghost-button,
 .primary-button,
 .selected-item__controls button {
@@ -57,16 +61,20 @@
 .primary-button {
     background: #2563eb;
     color: #fff;
-    font-weight: bold;
+    font-weight: 700;
     padding: 0.75rem;
 }
 
-.helper-text {
-    margin: 0;
-    color: #6b7280;
-    font-size: 0.9rem;
+.selected-item__controls button {
+    background: #e5e7eb;
 }
 
+.selected-item__controls button:last-child {
+    background: #f43f5e;
+    color: #fff;
+}
+
+/* File picker + list */
 .file-select {
     display: flex;
     flex-direction: column;
@@ -81,7 +89,6 @@
     background: #1f2937;
     color: #fff;
     padding: 0.65rem 1.25rem;
-    border-radius: 0;
     font-weight: 600;
     cursor: pointer;
     width: fit-content;
@@ -96,7 +103,6 @@
 
 .selected-files-box {
     border: 1px solid #d1d5db;
-    border-radius: 0;
     padding: 1rem;
     background: #f9fafb;
 }
@@ -129,8 +135,21 @@
     align-items: center;
     padding: 0.5rem 0.75rem;
     border: 1px solid #e5e7eb;
-    border-radius: 0;
     background: #fff;
+}
+
+.selected-item__name {
+    flex: 1;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    overflow: hidden;
+}
+
+.selected-item__name span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .selected-item.is-dragging {
@@ -150,39 +169,6 @@
     box-shadow: 0 3px 0 #2563eb inset;
 }
 
-.selected-item__name {
-    flex: 1;
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    overflow: hidden;
-}
-
-.selected-item__name span {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.selected-item__controls {
-    display: flex;
-    gap: 0.35rem;
-}
-
-.selected-item__controls button {
-    background: #e5e7eb;
-}
-
-.selected-item__controls button:last-child {
-    background: #f43f5e;
-    color: #fff;
-}
-
-.empty-state-sm {
-    color: #6b7280;
-    margin: 0;
-}
-
 .output-label {
     display: flex;
     flex-direction: column;
@@ -191,13 +177,12 @@
 
 .output-label input {
     padding: 0.5rem;
-    border-radius: 0;
     border: 1px solid #d1d5db;
 }
 
+/* Flash + history list */
 .flash {
     padding: 0.75rem 1rem;
-    border-radius: 0;
     font-weight: 600;
 }
 
@@ -215,15 +200,10 @@
     margin: 0;
 }
 
-.history-header p {
-    margin-top: 0.25rem;
-    color: #6b7280;
-}
-
 .history-list {
     list-style: none;
     padding: 0;
-    margin: 1rem 0 0 0;
+    margin: 1rem 0 0;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -234,19 +214,12 @@
     justify-content: space-between;
     align-items: center;
     border: 1px solid #e5e7eb;
-    border-radius: 0;
     padding: 0.75rem 1rem;
 }
 
 .history-item__name {
     font-weight: 600;
     margin: 0;
-}
-
-.history-item__meta {
-    margin: 0.25rem 0 0;
-    color: #6b7280;
-    font-size: 0.9rem;
 }
 
 .download-link {
@@ -259,14 +232,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 0;
 }
 
-.empty-state {
-    color: #6b7280;
-    margin-top: 1rem;
-}
-
+/* Progress toast */
 .merge-progress {
     position: fixed;
     left: 1rem;
@@ -274,7 +242,6 @@
     bottom: 1rem;
     background: #111827;
     color: #fff;
-    border-radius: 0;
     padding: 0.85rem 1rem;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
     z-index: 50;
@@ -296,7 +263,6 @@
     width: 100%;
     height: 6px;
     background: rgba(255, 255, 255, 0.15);
-    border-radius: 0;
     overflow: hidden;
 }
 
