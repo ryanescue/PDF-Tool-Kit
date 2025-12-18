@@ -41,6 +41,12 @@
     margin: 0;
 }
 
+.helper-text {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.85rem;
+}
+
 .helper-text--file--active {
     color: #0f172a;
     font-weight: 600;
@@ -226,6 +232,12 @@
 
 .extract-output {
     margin-top: 1.5rem;
+    border: 1px solid #e5e7eb;
+    padding: 1.25rem;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
 .extract-output__header {
@@ -235,10 +247,40 @@
     gap: 1rem;
 }
 
+.extract-output__actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .result {
     width: 100%;
     min-height: 280px;
-    margin-top: 0.75rem;
+    margin-top: 0.25rem;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    resize: vertical;
+}
+
+.table-preview {
+    overflow-x: auto;
+}
+
+.table-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.table-preview th,
+.table-preview td {
+    border: 1px solid #d1d5db;
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+}
+
+.table-preview th {
+    background: #f8fafc;
+    font-weight: 600;
 }
 
 /* History list */
@@ -359,6 +401,63 @@
 
     .extract-output__header {
         flex-direction: column;
-        align-items: flex-start;
+    align-items: flex-start;
+}
+
+/* Progress overlay */
+.progress-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+
+.progress-overlay.is-visible {
+    display: flex;
+}
+
+.progress-dialog {
+    background: #fff;
+    padding: 1.5rem 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+    text-align: center;
+    min-width: min(360px, 90vw);
+}
+
+.progress-dialog p {
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar__fill {
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: linear-gradient(90deg, #2563eb, #38bdf8);
+    border-radius: 999px;
+    animation: progress-pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes progress-pulse {
+    0% {
+        transform: translateX(-100%);
     }
+    50% {
+        transform: translateX(20%);
+    }
+    100% {
+        transform: translateX(150%);
+    }
+}
 }

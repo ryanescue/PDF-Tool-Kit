@@ -113,6 +113,7 @@ pyee==13.0.0
 Pygments==2.19.2
 pyparsing==3.2.5
 PyPDF2==3.0.1
+psycopg2-binary==2.9.10
 pypdfium2==4.30.0
 pytesseract==0.3.13
 python-bidi==0.6.7

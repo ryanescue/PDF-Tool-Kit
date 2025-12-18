@@ -19,6 +19,9 @@
             {% if error %}
                 <p class="flash flash--error">{{ error }}</p>
             {% endif %}
+            {% if csv_error %}
+                <p class="flash flash--error">{{ csv_error }}</p>
+            {% endif %}
             {% if text and not error %}
                 <p class="flash flash--success">Extraction complete. Copy or download the text below.</p>
             {% endif %}
@@ -90,16 +93,67 @@
                         <input type="checkbox" name="normalize" value="1" {% if normalize %}checked{% endif %}>
                         Normalize whitespace
                     </label>
+                    <label class="normalize-toggle">
+                        <input type="checkbox" name="scanned_hint" value="1" {% if scanned_hint %}checked{% endif %}>
+                        This is a scanned document (improve OCR)
+                    </label>
+                    <label class="normalize-toggle">
+                        <input type="checkbox" name="export_csv" value="1" {% if export_csv %}checked{% endif %}>
+                        Detect tables and export CSV (experimental)
+                    </label>
 
                     <button type="submit" class="primary-button">Extract</button>
                 </form>
             </div>
+            <div class="progress-overlay" id="extract-progress" aria-hidden="true">
+                <div class="progress-dialog" role="status" aria-live="assertive">
+                    <p>Working on your document…</p>
+                    <div class="progress-bar">
+                        <span class="progress-bar__fill"></span>
+                    </div>
+                </div>
+            </div>
+
+            {% if csv_preview %}
+                <section class="extract-output">
+                    <div class="extract-output__header">
+                        <h2>Detected table</h2>
+                        <a class="ghost-button" href="{% url 'extract_download' csv_preview.artifact_id %}">Download CSV</a>
+                    </div>
+                    <div class="table-preview">
+                        <table>
+                            <thead>
+                                <tr>
+                                    {% for header in csv_preview.headers %}
+                                        <th>{{ header }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in csv_preview.rows %}
+                                    <tr>
+                                        {% for cell in row %}
+                                            <td>{{ cell }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <p class="helper-text">Showing first {{ csv_preview.count }} row(s). Full CSV download includes {{ csv_preview.total }} rows.</p>
+                    </div>
+                </section>
+            {% endif %}
 
             {% if text %}
                 <section class="extract-output">
                     <div class="extract-output__header">
                         <h2>Extracted text</h2>
-                        <button type="button" id="copy-current" class="ghost-button">Copy all</button>
+                        <div class="extract-output__actions">
+                            <button type="button" id="copy-current" class="ghost-button">Copy all</button>
+                            {% if text_artifact_id %}
+                                <a class="ghost-button" href="{% url 'extract_download' text_artifact_id %}">Download TXT</a>
+                            {% endif %}
+                        </div>
                     </div>
                     <textarea class="result" id="current-result" readonly>{{ text }}</textarea>
                 </section>
@@ -131,7 +185,10 @@
                                         data-download="{% url 'extract_download' item.artifact_id %}">
                                     Preview
                                 </button>
-                                <a class="ghost-button" href="{% url 'extract_download' item.artifact_id %}">Download</a>
+                                <a class="ghost-button" href="{% url 'extract_download' item.artifact_id %}">Download TXT</a>
+                                {% if item.csv_artifact_id %}
+                                    <a class="ghost-button" href="{% url 'extract_download' item.csv_artifact_id %}">Download CSV</a>
+                                {% endif %}
                                 <button type="button"
                                         class="ghost-button history-apply"
                                         data-method="{{ item.method }}"
@@ -317,6 +374,22 @@
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape" && popover.classList.contains("is-visible")) {
                 closeInfo();
+            }
+        });
+    })();
+
+    (function () {
+        const form = document.getElementById("extract-form");
+        const overlay = document.getElementById("extract-progress");
+        const submitButton = form?.querySelector("button[type='submit']");
+        if (!form || !overlay) return;
+
+        form.addEventListener("submit", () => {
+            overlay.classList.add("is-visible");
+            overlay.setAttribute("aria-hidden", "false");
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = "Processing…";
             }
         });
     })();

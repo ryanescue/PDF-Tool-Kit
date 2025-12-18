@@ -14,7 +14,7 @@ from pathlib import Path #path helper for file handling
 from typing import Iterable, List, Literal, Optional, Sequence
 #OCR = Optical Character Recognition
 import pypdfium2 as pdfium #PDF renderer
-from PIL import Image #OCR preprocessing
+from PIL import Image, ImageFilter, ImageOps #OCR preprocessing
 from PyPDF2 import PdfReader #Reading PDF text layer when available
 
 Method = Literal["pypdf", "tesseract", "easyocr", "auto"]
@@ -67,24 +67,36 @@ def extract_text_pypdf(pdf_path: Path, pages: Optional[Sequence[int]] = None) ->
     return "\n".join(parts)
 
 
-def _extract_text_from_images(images: Iterable[dict], extractor) -> str: #helper that feeds each rendered page through the given OCR
+def _preprocess_scan_image(img: Image.Image) -> Image.Image:
+    gray = img.convert("L")
+    contrasted = ImageOps.autocontrast(gray)
+    filtered = contrasted.filter(ImageFilter.MedianFilter(size=3))
+    thresholded = filtered.point(lambda p: 255 if p > 165 else 0, mode="1")
+    return thresholded.convert("L")
+
+
+def _extract_text_from_images(images: Iterable[dict], extractor, *, preprocess_scans: bool = False) -> str: #helper that feeds each rendered page through the given OCR
     chunks: List[str]= []
     for item in images:
         img = Image.open(BytesIO(item["bytes"]))
+        if preprocess_scans:
+            img = _preprocess_scan_image(img)
         chunks.append(str(extractor(img)))
     return "\n".join(chunks)
 
 
-def extract_text_tesseract(images: Sequence[dict]) -> str:#feeder to concatenat recognized text
+def extract_text_tesseract(images: Sequence[dict], *, preprocess_scans: bool = False) -> str:#feeder to concatenat recognized text
     image_to_string = _lazy_import_tesseract()
-    return _extract_text_from_images(images, image_to_string)
+    return _extract_text_from_images(images, image_to_string, preprocess_scans=preprocess_scans)
 
 
-def extract_text_easyocr(images: Sequence[dict]) -> str: #runs EasyOCR
+def extract_text_easyocr(images: Sequence[dict], *, preprocess_scans: bool = False) -> str: #runs EasyOCR
     reader= _lazy_import_easyocr()
     chunks: List[str]= []
     for item in images:
         img= Image.open(BytesIO(item["bytes"]))
+        if preprocess_scans:
+            img = _preprocess_scan_image(img)
         res= reader.readtext(img)
         chunks.append("\n".join(r[1] for r in res))
     return "\n".join(chunks)
@@ -101,7 +113,7 @@ def normalize_text(text: str) -> str: #output messy?  This should clean the OCR 
     return text
 
                     #filesystem       Choose method            DPI Control
-def extract_pdf_text(source: Path, *, method: Method = "auto", scale: float = 300 / 72, normalize: bool = False, pages: Optional[Sequence[int]] = None, ) -> str: #extration logic from the slected PDF
+def extract_pdf_text(source: Path, *, method: Method = "auto", scale: float = 300 / 72, normalize: bool = False, pages: Optional[Sequence[int]] = None, preprocess_scans: bool = False, ) -> str: #extration logic from the slected PDF
     if not source.exists(): #bad path checker
         raise FileNotFoundError(source)
 
@@ -117,15 +129,15 @@ def extract_pdf_text(source: Path, *, method: Method = "auto", scale: float = 30
         else:
             if images is None: #render pages if havent yet
                 images = convert_pdf_to_images(source, scale=scale, pages=pages)
-            text = extract_text_tesseract(images)
+            text = extract_text_tesseract(images, preprocess_scans=preprocess_scans)
     elif method == "tesseract":
         if images is None:
             images = convert_pdf_to_images(source, scale=scale, pages=pages)
-        text = extract_text_tesseract(images)
+        text = extract_text_tesseract(images, preprocess_scans=preprocess_scans)
     elif method == "easyocr":
         if images is None:
             images = convert_pdf_to_images(source, scale=scale, pages=pages)
-        text = extract_text_easyocr(images)
+        text = extract_text_easyocr(images, preprocess_scans=preprocess_scans)
     else:  #pragma: no cover - validated by Literal
         raise ValueError(f"Unknown extraction method: {method}") #collapses whitespace, was just getting line by line
 

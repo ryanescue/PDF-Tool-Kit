@@ -52,6 +52,9 @@
                             {% elif record.type == "extract" %}
                                 <div class="history-actions">
                                     <a class="download-link" href="{% url 'extract_download' record.artifact_id %}">&#8681;</a>
+                                    {% if record.csv_artifact_id %}
+                                        <a class="download-link" href="{% url 'extract_download' record.csv_artifact_id %}" aria-label="Download CSV">CSV</a>
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         </li>
