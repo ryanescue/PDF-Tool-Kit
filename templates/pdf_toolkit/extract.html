@@ -22,6 +22,9 @@
             {% if csv_error %}
                 <p class="flash flash--error">{{ csv_error }}</p>
             {% endif %}
+            {% if xlsx_error %}
+                <p class="flash flash--error">{{ xlsx_error }}</p>
+            {% endif %}
             {% if text and not error %}
                 <p class="flash flash--success">Extraction complete. Copy or download the text below.</p>
             {% endif %}
@@ -98,8 +101,16 @@
                         This is a scanned document (improve OCR)
                     </label>
                     <label class="normalize-toggle">
+                        <input type="checkbox" name="deskew_hint" value="1" {% if deskew_hint %}checked{% endif %}>
+                        Deskew crooked scans (experimental)
+                    </label>
+                    <label class="normalize-toggle">
                         <input type="checkbox" name="export_csv" value="1" {% if export_csv %}checked{% endif %}>
                         Detect tables and export CSV (experimental)
+                    </label>
+                    <label class="normalize-toggle">
+                        <input type="checkbox" name="export_xlsx" value="1" {% if export_xlsx %}checked{% endif %}>
+                        Detect tables and export Excel (experimental)
                     </label>
 
                     <button type="submit" class="primary-button">Extract</button>
@@ -140,6 +151,14 @@
                             </tbody>
                         </table>
                         <p class="helper-text">Showing first {{ csv_preview.count }} row(s). Full CSV download includes {{ csv_preview.total }} rows.</p>
+                    </div>
+                </section>
+            {% endif %}
+            {% if xlsx_artifact_id %}
+                <section class="extract-output">
+                    <div class="extract-output__header">
+                        <h2>Excel export</h2>
+                        <a class="ghost-button" href="{% url 'extract_download' xlsx_artifact_id %}">Download XLSX</a>
                     </div>
                 </section>
             {% endif %}
@@ -188,6 +207,9 @@
                                 <a class="ghost-button" href="{% url 'extract_download' item.artifact_id %}">Download TXT</a>
                                 {% if item.csv_artifact_id %}
                                     <a class="ghost-button" href="{% url 'extract_download' item.csv_artifact_id %}">Download CSV</a>
+                                {% endif %}
+                                {% if item.xlsx_artifact_id %}
+                                    <a class="ghost-button" href="{% url 'extract_download' item.xlsx_artifact_id %}">Download XLSX</a>
                                 {% endif %}
                                 <button type="button"
                                         class="ghost-button history-apply"

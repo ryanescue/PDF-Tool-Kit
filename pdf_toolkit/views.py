@@ -20,6 +20,7 @@ from .services.pdf_extractor import extract_pdf_text #PDF extraction logic
 from .services.pdf_merger import merge_uploaded_files #PDF merge helpers
 from .services.pdf_splitter import SplitError, split_pdf #PDF split helpers
 from .services.table_extractor import extract_pdf_tables_as_csv
+from .services.table_exporter import extract_pdf_tables_as_xlsx
 
 
 @login_required(login_url="login")
@@ -73,19 +74,25 @@ def extract_view(request): #Upload view
     normalize_requested=bool(request.POST.get("normalize"))
     page_range_raw=request.POST.get("pages", "")
     export_csv_requested=bool(request.POST.get("export_csv"))
+    export_xlsx_requested=bool(request.POST.get("export_xlsx"))
     scanned_hint=bool(request.POST.get("scanned_hint"))
+    deskew_hint=bool(request.POST.get("deskew_hint"))
 
     context = { #base template
         "selected_method": method,
         "normalize": normalize_requested,
         "pages": page_range_raw,
         "export_csv": export_csv_requested,
+        "export_xlsx": export_xlsx_requested,
         "scanned_hint": scanned_hint,
+        "deskew_hint": deskew_hint,
         "text": "",
         "error": "",
         "csv_preview": None,
         "text_artifact_id": None,
         "csv_error": "",
+        "xlsx_error": "",
+        "xlsx_artifact_id": None,
         "history": _extract_history_for_user(request.user),
     }
     if request.method == "POST":
@@ -114,6 +121,7 @@ def extract_view(request): #Upload view
                     pages=pages or None,
                     scale=scan_scale,
                     preprocess_scans=scanned_hint,
+                    deskew=deskew_hint,
                 )
                 context["text"] = extracted_text
                 csv_result = None
@@ -124,6 +132,7 @@ def extract_view(request): #Upload view
                             pages=pages or None,
                             scale=scan_scale,
                             preprocess_scans=scanned_hint,
+                            deskew=deskew_hint,
                         )
                     except TesseractNotFoundError:
                         context["csv_error"] = (
@@ -136,7 +145,30 @@ def extract_view(request): #Upload view
                         context["csv_error"] = f"Unable to detect tables: {exc}"
                         csv_result = None
 
-                text_artifact, csv_artifact = _persist_extract_result(
+                xlsx_result = None
+                if export_xlsx_requested:
+                    try:
+                        xlsx_result = extract_pdf_tables_as_xlsx(
+                            temp_path,
+                            pages=pages or None,
+                            scale=scan_scale,
+                            preprocess_scans=scanned_hint,
+                            deskew=deskew_hint,
+                        )
+                        if xlsx_result is None:
+                            context["xlsx_error"] = "Unable to detect tables for Excel export."
+                    except TesseractNotFoundError:
+                        context["xlsx_error"] = (
+                            "Excel export requires the Tesseract OCR binary for scanned PDFs. "
+                            "Install it (e.g. `sudo apt install tesseract-ocr`) "
+                            "or uncheck the Excel checkbox."
+                        )
+                        xlsx_result = None
+                    except Exception as exc:
+                        context["xlsx_error"] = f"Unable to export Excel: {exc}"
+                        xlsx_result = None
+
+                text_artifact, csv_artifact, xlsx_artifact = _persist_extract_result(
                     user=request.user,
                     source_name=uploaded_file.name,
                     text=extracted_text,
@@ -144,7 +176,9 @@ def extract_view(request): #Upload view
                     normalize=normalize_requested,
                     page_range=page_range_raw or "All pages",
                     csv_result=csv_result,
+                    xlsx_result=xlsx_result,
                     scan_hint=scanned_hint,
+                    deskew_hint=deskew_hint,
                 )
                 context["text_artifact_id"] = text_artifact.id if text_artifact else None
                 if csv_result and csv_artifact:
@@ -158,6 +192,8 @@ def extract_view(request): #Upload view
                         "count": len(csv_result.preview_rows),
                         "total": csv_result.total_rows,
                     }
+                if xlsx_artifact:
+                    context["xlsx_artifact_id"] = xlsx_artifact.id
                 context["history"] = _extract_history_for_user(request.user)
             except Exception as exc:  # pragma: no cover - best effort UI feedback
                 context["error"] = f"Failed to extract text: {exc}"
@@ -323,6 +359,12 @@ def _safe_csv_filename(source_name: str) -> str:
     return f"{sanitized}-table.csv"
 
 
+def _safe_xlsx_filename(source_name: str) -> str:
+    base = Path(source_name).stem or "extracted"
+    sanitized = re.sub(r"[^A-Za-z0-9._-]+", "-", base).strip("-_.") or "extracted"
+    return f"{sanitized}-table.xlsx"
+
+
 def _parse_split_points(raw_value): #turns input into ints
     if not raw_value:
         return []
@@ -408,7 +450,19 @@ def _persist_split_results(*, user, uploaded_name, segments, split_points, total
     return operation
 
 
-def _persist_extract_result( *, user, source_name, text, method, normalize, page_range, csv_result=None, scan_hint=False, ): #extracted text as a plaintext file & metadata row
+def _persist_extract_result(
+    *,
+    user,
+    source_name,
+    text,
+    method,
+    normalize,
+    page_range,
+    csv_result=None,
+    xlsx_result=None,
+    scan_hint=False,
+    deskew_hint=False,
+): #extracted text as a plaintext file & metadata row
     filename= _safe_text_filename(source_name)
     operation_metadata={
         "method": method,
@@ -417,10 +471,14 @@ def _persist_extract_result( *, user, source_name, text, method, normalize, page
         "characters": len(text),
         "has_csv": bool(csv_result),
         "scan_hint": bool(scan_hint),
+        "deskew_hint": bool(deskew_hint),
     }
     if csv_result:
         operation_metadata["csv_rows"] = csv_result.total_rows
         operation_metadata["csv_columns"] = csv_result.column_count
+    if xlsx_result:
+        operation_metadata["xlsx_rows"] = xlsx_result.total_rows
+        operation_metadata["xlsx_columns"] = xlsx_result.column_count
     operation= DocumentOperation.objects.create( user=user, operation_type=DocumentOperation.OperationType.EXTRACT, source_name=source_name, output_name=filename,
         metadata=operation_metadata,)
     snippet= text[:600]
@@ -447,7 +505,26 @@ def _persist_extract_result( *, user, source_name, text, method, normalize, page
         )
         csv_artifact.file.save(csv_filename, ContentFile(csv_result.csv_text), save=True)
 
-    return text_artifact, csv_artifact
+    xlsx_artifact = None
+    if xlsx_result:
+        xlsx_filename = _safe_xlsx_filename(source_name)
+        xlsx_artifact = DocumentArtifact(
+            operation=operation,
+            display_name=xlsx_filename,
+            metadata={
+                "kind": "xlsx",
+                "headers": xlsx_result.headers,
+                "total_rows": xlsx_result.total_rows,
+                "page_count": xlsx_result.page_count,
+            },
+        )
+        xlsx_artifact.file.save(
+            xlsx_filename,
+            ContentFile(xlsx_result.excel_bytes),
+            save=True,
+        )
+
+    return text_artifact, csv_artifact, xlsx_artifact
 
 
 def _extract_operation_artifacts(operation):
@@ -460,9 +537,13 @@ def _extract_operation_artifacts(operation):
         (artifact for artifact in artifacts if artifact.metadata.get("kind") == "csv"),
         None,
     )
+    xlsx_artifact = next(
+        (artifact for artifact in artifacts if artifact.metadata.get("kind") == "xlsx"),
+        None,
+    )
     if not text_artifact and artifacts:
         text_artifact = artifacts[0]
-    return text_artifact, csv_artifact
+    return text_artifact, csv_artifact, xlsx_artifact
 
 
 def _merge_history_for_user(user, limit=10): #simplified list of recent merge operations
@@ -488,13 +569,14 @@ def _extract_history_for_user(user, limit=10):#history specific to extraction
     operations = (DocumentOperation.objects.filter( user=user, operation_type=DocumentOperation.OperationType.EXTRACT,) .prefetch_related("artifacts") .order_by("-created_at")[:limit])
     history = []
     for operation in operations:
-        text_artifact, csv_artifact = _extract_operation_artifacts(operation)
+        text_artifact, csv_artifact, xlsx_artifact = _extract_operation_artifacts(operation)
         if not text_artifact:
             continue
         history.append(
             {
                 "artifact_id": text_artifact.id,
                 "csv_artifact_id": csv_artifact.id if csv_artifact else None,
+                "xlsx_artifact_id": xlsx_artifact.id if xlsx_artifact else None,
                 "title": operation.source_name or text_artifact.display_name,
                 "created": operation.created_at.strftime("%Y-%m-%d %H:%M"),
                 "method": operation.metadata.get("method", "auto"),
@@ -534,7 +616,7 @@ def _build_activity_history(user, limit=10): #AI assisted
                     }
                 )
         else: #AI
-            text_artifact, csv_artifact = _extract_operation_artifacts(op)
+            text_artifact, csv_artifact, xlsx_artifact = _extract_operation_artifacts(op)
             if not text_artifact:
                 continue
             base["artifact_id"] = text_artifact.id
@@ -542,5 +624,7 @@ def _build_activity_history(user, limit=10): #AI assisted
             base["snippet"] = text_artifact.metadata.get("snippet", "")
             if csv_artifact:
                 base["csv_artifact_id"] = csv_artifact.id
+            if xlsx_artifact:
+                base["xlsx_artifact_id"] = xlsx_artifact.id
         entries.append(base)
     return entries

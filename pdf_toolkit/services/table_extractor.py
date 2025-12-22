@@ -20,9 +20,9 @@ from typing import List, Optional, Sequence
 import re
 
 import pandas as pd
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image
 
-from .pdf_extractor import convert_pdf_to_images
+from .pdf_extractor import convert_pdf_to_images, enhance_ocr_image
 
 HEADER_KEYWORDS = {
     "description",
@@ -61,6 +61,7 @@ def extract_pdf_tables_as_csv(
     min_confidence: int = 45,
     max_preview_rows: int = 12,
     preprocess_scans: bool = False,
+    deskew: bool = False,
 ) -> Optional[CsvExtractionResult]:
     """Return a structured CSV for the provided PDF if a table is detected.
 
@@ -86,6 +87,7 @@ def extract_pdf_tables_as_csv(
             payload["bytes"],
             min_confidence=min_confidence,
             preprocess_scans=preprocess_scans,
+            deskew=deskew,
         )
         if not rows:
             continue
@@ -128,14 +130,20 @@ def extract_pdf_tables_as_csv(
 
 
 def _table_rows_from_image(
-    image_bytes: bytes, *, min_confidence: int, preprocess_scans: bool
+    image_bytes: bytes,
+    *,
+    min_confidence: int,
+    preprocess_scans: bool,
+    deskew: bool,
 ) -> List[List[str]]:
     from pytesseract import Output, image_to_data
 
     image = Image.open(BytesIO(image_bytes))
-    if preprocess_scans:
-        image = _preprocess_scan_image(image)
-    image = image.convert("L")
+    image = enhance_ocr_image(
+        image,
+        preprocess_scans=preprocess_scans,
+        deskew=deskew,
+    ).convert("L")
     data_frame = image_to_data(image, output_type=Output.DATAFRAME)
     if data_frame is None or not isinstance(data_frame, pd.DataFrame):
         return []

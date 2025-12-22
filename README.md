@@ -11,4 +11,4 @@ sudo apt install -y tesseract-ocr
 
 On macOS use `brew install tesseract`, and on Windows install the official Tesseract package and make sure `tesseract.exe` is on your `PATH`.
 
-When working with scanned PDFs inside the extractor UI, enable the “This is a scanned document” checkbox to run the higher DPI render plus image preprocessing pipeline before OCR. This improves accuracy for faint digits and helps the CSV/table detector stay aligned.
+When working with scanned PDFs inside the extractor UI, enable the “This is a scanned document” checkbox to run the higher DPI render plus image preprocessing pipeline before OCR. This improves accuracy for faint digits and helps the CSV/table detector stay aligned. If the scan is slightly crooked, also check “Deskew crooked scans” so the tool rotates each page based on Tesseract’s orientation detection before running OCR.
