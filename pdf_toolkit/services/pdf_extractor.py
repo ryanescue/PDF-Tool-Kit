@@ -26,6 +26,7 @@ __all__ = [
     "extract_text_tesseract",
     "extract_text_easyocr",
     "normalize_text",
+    "enhance_ocr_image",
 ]
 
 
@@ -37,7 +38,7 @@ def _lazy_import_easyocr():
     from easyocr import Reader  # EasyOCR model loader for multilingual OCR
     return Reader(["en"])
 
-def convert_pdf_to_images(
+def convert_pdf_to_images( #dpi is 300
     pdf_path: Path, *, scale: float = 300 / 72, pages: Optional[Sequence[int]] = None
 ) -> List[dict]:
     #render selected pages of the pdf to jpg images in memory
@@ -75,28 +76,65 @@ def _preprocess_scan_image(img: Image.Image) -> Image.Image:
     return thresholded.convert("L")
 
 
-def _extract_text_from_images(images: Iterable[dict], extractor, *, preprocess_scans: bool = False) -> str: #helper that feeds each rendered page through the given OCR
+def _deskew_image(img: Image.Image) -> Image.Image:
+    try:
+        from pytesseract import Output, TesseractNotFoundError, image_to_osd
+    except ImportError:
+        return img
+    try:
+        osd = image_to_osd(img, output_type=Output.DICT)
+    except TesseractNotFoundError:
+        return img
+    angle = osd.get("rotate")
+    try:
+        angle_value = float(angle or 0)
+    except (TypeError, ValueError):
+        angle_value = 0.0
+    if not angle_value:
+        return img
+    return img.rotate(-angle_value, expand=True)
+
+
+def enhance_ocr_image(img: Image.Image, *, preprocess_scans: bool = False, deskew: bool = False) -> Image.Image:
+    processed = img
+    if preprocess_scans:
+        processed = _preprocess_scan_image(processed)
+    if deskew:
+        processed = _deskew_image(processed)
+    return processed
+
+
+def _extract_text_from_images(
+    images: Iterable[dict],
+    extractor,
+    *,
+    preprocess_scans: bool = False,
+    deskew: bool = False,
+) -> str: #helper that feeds each rendered page through the given OCR
     chunks: List[str]= []
     for item in images:
         img = Image.open(BytesIO(item["bytes"]))
-        if preprocess_scans:
-            img = _preprocess_scan_image(img)
+        img = enhance_ocr_image(img, preprocess_scans=preprocess_scans, deskew=deskew)
         chunks.append(str(extractor(img)))
     return "\n".join(chunks)
 
 
-def extract_text_tesseract(images: Sequence[dict], *, preprocess_scans: bool = False) -> str:#feeder to concatenat recognized text
+def extract_text_tesseract(images: Sequence[dict], *, preprocess_scans: bool = False, deskew: bool = False) -> str:#feeder to concatenat recognized text
     image_to_string = _lazy_import_tesseract()
-    return _extract_text_from_images(images, image_to_string, preprocess_scans=preprocess_scans)
+    return _extract_text_from_images(
+        images,
+        image_to_string,
+        preprocess_scans=preprocess_scans,
+        deskew=deskew,
+    )
 
 
-def extract_text_easyocr(images: Sequence[dict], *, preprocess_scans: bool = False) -> str: #runs EasyOCR
+def extract_text_easyocr(images: Sequence[dict], *, preprocess_scans: bool = False, deskew: bool = False) -> str: #runs EasyOCR
     reader= _lazy_import_easyocr()
     chunks: List[str]= []
     for item in images:
         img= Image.open(BytesIO(item["bytes"]))
-        if preprocess_scans:
-            img = _preprocess_scan_image(img)
+        img = enhance_ocr_image(img, preprocess_scans=preprocess_scans, deskew=deskew)
         res= reader.readtext(img)
         chunks.append("\n".join(r[1] for r in res))
     return "\n".join(chunks)
@@ -113,7 +151,16 @@ def normalize_text(text: str) -> str: #output messy?  This should clean the OCR 
     return text
 
                     #filesystem       Choose method            DPI Control
-def extract_pdf_text(source: Path, *, method: Method = "auto", scale: float = 300 / 72, normalize: bool = False, pages: Optional[Sequence[int]] = None, preprocess_scans: bool = False, ) -> str: #extration logic from the slected PDF
+def extract_pdf_text(
+    source: Path,
+    *,
+    method: Method = "auto",
+    scale: float = 300 / 72,
+    normalize: bool = False,
+    pages: Optional[Sequence[int]] = None,
+    preprocess_scans: bool = False,
+    deskew: bool = False,
+) -> str: #extration logic from the slected PDF
     if not source.exists(): #bad path checker
         raise FileNotFoundError(source)
 
@@ -129,15 +176,21 @@ def extract_pdf_text(source: Path, *, method: Method = "auto", scale: float = 30
         else:
             if images is None: #render pages if havent yet
                 images = convert_pdf_to_images(source, scale=scale, pages=pages)
-            text = extract_text_tesseract(images, preprocess_scans=preprocess_scans)
+            text = extract_text_tesseract(
+                images, preprocess_scans=preprocess_scans, deskew=deskew
+            )
     elif method == "tesseract":
         if images is None:
             images = convert_pdf_to_images(source, scale=scale, pages=pages)
-        text = extract_text_tesseract(images, preprocess_scans=preprocess_scans)
+        text = extract_text_tesseract(
+            images, preprocess_scans=preprocess_scans, deskew=deskew
+        )
     elif method == "easyocr":
         if images is None:
             images = convert_pdf_to_images(source, scale=scale, pages=pages)
-        text = extract_text_easyocr(images, preprocess_scans=preprocess_scans)
+        text = extract_text_easyocr(
+            images, preprocess_scans=preprocess_scans, deskew=deskew
+        )
     else:  #pragma: no cover - validated by Literal
         raise ValueError(f"Unknown extraction method: {method}") #collapses whitespace, was just getting line by line
 

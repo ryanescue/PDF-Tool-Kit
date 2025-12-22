@@ -10,6 +10,7 @@ babel==2.17.0
 beautifulsoup4==4.14.2
 bleach==6.3.0
 certifi==2025.10.5
+camelot-py==1.0.9
 cffi==2.0.0
 chardet==5.2.0
 charset-normalizer==3.4.4
@@ -93,6 +94,7 @@ nvidia-nvjitlink-cu12==12.8.93
 nvidia-nvshmem-cu12==3.3.20
 nvidia-nvtx-cu12==12.8.90
 opencv-python-headless==4.12.0.88
+openpyxl==3.1.5
 packaging==25.0
 pandas==2.3.3
 pandocfilters==1.5.1
@@ -115,6 +117,7 @@ pyparsing==3.2.5
 PyPDF2==3.0.1
 psycopg2-binary==2.9.10
 pypdfium2==4.30.0
+pdfplumber==0.11.8
 pytesseract==0.3.13
 python-bidi==0.6.7
 python-dateutil==2.9.0.post0
@@ -144,6 +147,8 @@ soupsieve==2.8
 sqlparse==0.5.3
 stack-data==0.6.3
 sympy==1.14.0
+tabula-py==2.10.0
+tabulate==0.9.0
 terminado==0.18.1
 threadpoolctl==3.6.0
 tifffile==2025.10.16
@@ -161,3 +166,4 @@ wcwidth==0.2.14
 webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
+xlsxwriter==3.2.9

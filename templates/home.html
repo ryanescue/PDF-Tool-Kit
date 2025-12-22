@@ -55,6 +55,9 @@
                                     {% if record.csv_artifact_id %}
                                         <a class="download-link" href="{% url 'extract_download' record.csv_artifact_id %}" aria-label="Download CSV">CSV</a>
                                     {% endif %}
+                                    {% if record.xlsx_artifact_id %}
+                                        <a class="download-link" href="{% url 'extract_download' record.xlsx_artifact_id %}" aria-label="Download XLSX">XLSX</a>
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         </li>
